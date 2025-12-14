@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ADHD Study Buddy</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+    --primary: #4f46e5;
+    --danger: #ef4444;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --bg: #f3f4f6;
+    --card: rgba(255,255,255,0.85);
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+}
+
+.container {
+    width: 420px;
+    background: var(--card);
+    backdrop-filter: blur(14px);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.25);
+}
+
+h2, h3 { margin: 10px 0; color: #111827; }
+button, select, input {
+    font-family: inherit;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+}
+button { cursor: pointer; transition: all 0.25s ease; }
+button:hover { transform: translateY(-2px); }
+button:disabled { opacity: 0.5; transform: none; }
+
+.controls { display: flex; justify-content: space-between; margin-bottom: 15px; }
+select { width: 100%; background: #eef2ff; font-weight: 500; }
+
+.screen { display: none; animation: fade 0.4s ease; }
+.screen.active { display: block; }
+
+@keyframes fade {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+input { width: 100%; margin: 10px 0; background: #f1f5f9; }
+#task-submit { width: 100%; background: var(--primary); color: white; font-weight: 600; }
+
+.task-card {
+    background: #eef2ff;
+    border-radius: 14px;
+    padding: 12px;
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: fade 0.3s ease;
+}
+.task-card span { font-size: 13px; font-weight: 500; }
+.task-card button { background: var(--success); color: white; font-size: 12px; }
+
+#stop-btn { background: var(--danger); color: white; width: 100%; font-weight: 600; }
+
+.video-container { margin: 12px 0; border-radius: 14px; overflow: hidden; background: black; }
+img { width: 100%; max-height: 200px; object-fit: cover; }
+
+.progress { height: 14px; background: #e5e7eb; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+.bar { height: 100%; width: 0%; border-radius: 10px; transition: width 0.6s ease, background 0.4s ease; }
+
+.status-grid { display: grid; grid-template-columns: 1fr 1fr; font-size: 13px; margin-top: 8px; }
+
+#summary-content { padding: 10px 0; margin-bottom: 10px; border-top: 1px solid #ddd; border-bottom: 1px solid #ddd; }
+#summary-content p { margin: 5px 0; }
+#summary-message { font-weight: 600; color: var(--primary); margin-top: 15px; padding: 0 5px; }
+#start-new-btn { width: 100%; background: var(--primary); color: white; margin-top: 15px; font-weight: 600; }
+
+.note { font-size: 11px; text-align: center; color: #6b7280; margin-top: 10px; }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <div class="controls">
+        <select id="language">
+            <option value="english">English</option>
+            <option value="urdu">Urdu</option>
+        </select>
+    </div>
+
+    <!-- TASK INPUT SCREEN -->
+    <div id="task-input-screen" class="screen active">
+        <h2>📚 What will you study today?</h2>
+        <input id="main-task" placeholder="Write the HCI project report">
+        <button id="task-submit">Break Down Task</button>
+
+        <h3 id="breakdown-title" style="display:none;">Choose a focus block</h3>
+        <div id="task-breakdown-list"></div>
+    </div>
+
+    <!-- SESSION SCREEN -->
+    <div id="session-screen" class="screen">
+        <button id="stop-btn" disabled>Stop Session</button>
+
+        <div class="video-container">
+            <img id="camera">
+        </div>
+
+        <h3 id="current-task-display"></h3>
+        <h2 id="focus">Focus: 1.00</h2>
+
+        <div class="progress">
+            <div class="bar" id="bar"></div>
+        </div>
+
+        <div class="status-grid">
+            <div>Status: <b id="status">Stopped</b></div>
+            <div>Time: <b id="time">00:00</b></div>
+            <div>Fidget: <b id="fidget">0.00</b></div>
+        </div>
+
+        <!-- BREAK CONTROLS -->
+        <div style="margin:10px 0; display:flex; gap:4px;">
+            <input id="break-seconds" type="number" placeholder="Break time (sec)" style="flex:1;">
+            <button id="break-btn" style="flex:0 0 80px;">Take Break</button>
+        </div>
+    </div>
+
+    <!-- SUMMARY SCREEN -->
+    <div id="summary-screen" class="screen">
+        <h2>🎉 Session Complete</h2>
+
+        <div id="summary-content">
+            <p>Final Focus Score: <b id="final-score">--</b></p>
+            <p>Times Focus Lost (&lt; 0.5): <b id="lost-count">0</b></p>
+        </div>
+
+        <h3 id="summary-message"></h3>
+
+        <button id="start-new-btn">Start New Session</button>
+    </div>
+
+    <p class="note">🎙 Voice Command: say “Break” anytime</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+const socket = io();
+let running = false;
+
+const screens = {
+    task: document.getElementById('task-input-screen'),
+    session: document.getElementById('session-screen'),
+    summary: document.getElementById('summary-screen')
+};
+
+function show(screen) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[screen].classList.add('active');
+}
+
+function getSummaryMessage(count, lang) {
+    if (count < 1) {
+        return lang === 'urdu'
+            ? "Aap behtareen hain! Aap ne kamal ki tawajjo hasil ki. 🚀"
+            : "Perfect focus! Amazing work 🚀";
+    }
+    return lang === 'urdu'
+        ? "Achhi koshish! Agli baar break lene ki koshish karein ✨"
+        : "Good effort! Remember to take quick breaks ✨";
+}
+
+// ---------- TASK INPUT ----------
+document.getElementById('task-submit').onclick = () => {
+    const task = document.getElementById('main-task').value.trim();
+    if (!task) return;
+
+    document.getElementById('breakdown-title').style.display = 'block';
+    socket.emit('request_tasks', { title: task });
+};
+
+socket.on('task_breakdown', data => {
+    const list = document.getElementById('task-breakdown-list');
+    list.innerHTML = '';
+
+    data.tasks.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'task-card';
+        card.innerHTML = `
+            <span>${t.title} • ${t.duration} min</span>
+            <button onclick="startSession(${t.id})">Start</button>
+        `;
+        list.appendChild(card);
+    });
+});
+
+// ---------- SESSION ----------
+function startSession(taskId) {
+    if (running) return;
+    running = true;
+
+    show('session');
+    document.getElementById('stop-btn').disabled = false;
+    document.getElementById('camera').src = "/video_feed";
+
+    socket.emit('start_session', {
+        language: document.getElementById('language').value,
+        task_id: taskId
+    });
+}
+
+document.getElementById('stop-btn').onclick = () => socket.emit('stop_session');
+document.getElementById('start-new-btn').onclick = () => show('task');
+
+// ---------- BREAK ----------
+document.getElementById('break-btn').onclick = () => {
+    const seconds = parseInt(document.getElementById('break-seconds').value);
+    if (!seconds || seconds <= 0) return;
+
+    const lang = document.getElementById('language').value;
+    socket.emit('start_break', { seconds, language: lang });
+};
+
+// ---------- LIVE UPDATES ----------
+socket.on('score_update', d => {
+    document.getElementById('focus').innerText = "Focus: " + d.focus;
+    document.getElementById('status').innerText = d.status;
+    document.getElementById('time').innerText = d.elapsed_time;
+    document.getElementById('fidget').innerText = d.fidget;
+    document.getElementById('current-task-display').innerText = d.task || "Studying...";
+
+    const bar = document.getElementById('bar');
+    const pct = parseFloat(d.focus) * 100;
+    bar.style.width = pct + "%";
+    bar.style.background =
+        pct < 40 ? "var(--danger)" :
+        pct < 70 ? "var(--warning)" :
+        "var(--success)";
+
+    if (d.status === "Session Ended") {
+        running = false;
+        document.getElementById('camera').src = "";
+
+        document.getElementById('final-score').innerText = d.focus;
+        document.getElementById('lost-count').innerText = d.focus_lost_count || 0;
+
+        const lang = document.getElementById('language').value;
+        document.getElementById('summary-message').innerText =
+            getSummaryMessage(d.focus_lost_count, lang);
+
+        show('summary');
+    }
+});
+</script>
+
+</body>
+</html>

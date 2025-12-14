@@ -1,0 +1,20 @@
+# Required for web GUI
+Flask
+
+# Required for computer vision (Gesture Detection)
+opencv-python
+mediapipe
+
+# Required for voice input/output
+pyaudio
+SpeechRecognition
+pyttsx3
+
+
+
+
+
+
+
+
+
