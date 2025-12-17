@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusFlow - ADHD Study Assistant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .app-container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: white;
+            padding: 24px;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 600;
+            color: #5ec4a9;
+            margin-bottom: 40px;
+        }
+
+        .nav-item {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #6e6e73;
+            transition: all 0.3s;
+        }
+
+        .nav-item:hover {
+            background: #f5f5f7;
+            color: #1d1d1f;
+        }
+
+        .nav-item.active {
+            background: #e8f5f2;
+            color: #5ec4a9;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .header {
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 36px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #6e6e73;
+            font-size: 16px;
+        }
+
+        .privacy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #e8f5f2;
+            color: #5ec4a9;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-top: 16px;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        /* Focus Status */
+        .focus-status {
+            margin-bottom: 24px;
+        }
+
+        .focus-status h3 {
+            font-size: 14px;
+            color: #6e6e73;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .focus-meter {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 12px;
+        }
+
+        .focus-meter span {
+            font-size: 32px;
+            font-weight: 600;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 12px;
+            background: #e8e8ed;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #5ec4a9, #98d8c8);
+            border-radius: 6px;
+            transition: width 0.5s;
+        }
+
+        .webcam-status {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+
+        /* Focus Buddy */
+        .focus-buddy {
+            margin-bottom: 24px;
+        }
+
+        .buddy-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .buddy-avatar {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .buddy-info h4 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .buddy-info p {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+
+        .language-badge {
+            margin-left: auto;
+            padding: 4px 12px;
+            background: #f5f5f7;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .buddy-message {
+            background: #f5f5f7;
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        .chat-input {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .chat-input input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #e8e8ed;
+            border-radius: 24px;
+            font-size: 14px;
+        }
+
+        .mic-button {
+            width: 40px;
+            height: 40px;
+            border: none;
+            background: #5ec4a9;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .mic-button:hover {
+            background: #4db396;
+        }
+
+        .mic-button.active {
+            background: #ef4444;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Dopamine Menu */
+        .dopamine-menu {
+            margin-top: 24px;
+        }
+
+        .dopamine-menu h4 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            color: #d97706;
+        }
+
+        .dopamine-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .dopamine-item {
+            padding: 12px;
+            background: #fef3c7;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .dopamine-item:hover {
+            border-color: #d97706;
+            transform: translateY(-2px);
+        }
+
+        /* Tasks */
+        .tasks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .tasks-header h2 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chunking-badge {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .add-task-btn {
+            color: #5ec4a9;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .task-group {
+            margin-bottom: 24px;
+        }
+
+        .task-group h3 {
+            font-size: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .task-progress {
+            font-size: 12px;
+            color: #6e6e73;
+        }
+
+        .subtask {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            transition: all 0.3s;
+        }
+
+        .subtask:hover {
+            background: #f5f5f7;
+        }
+
+        .checkbox {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #d1d1d6;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .checkbox.checked {
+            background: #5ec4a9;
+            border-color: #5ec4a9;
+        }
+
+        .subtask-text {
+            flex: 1;
+        }
+
+        .subtask-text.completed {
+            text-decoration: line-through;
+            color: #6e6e73;
+        }
+
+        .subtask-duration {
+            color: #6e6e73;
+            font-size: 12px;
+        }
+
+        .progress-mini {
+            width: 60px;
+            height: 4px;
+            background: #e8e8ed;
+            border-radius: 2px;
+        }
+
+        .progress-mini-fill {
+            height: 100%;
+            background: #5ec4a9;
+            border-radius: 2px;
+        }
+
+        /* Activity Insights */
+        .activity-insights {
+            margin-top: 24px;
+            padding: 24px;
+            background: #fafafa;
+            border-radius: 12px;
+        }
+
+        .activity-insights h4 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #6e6e73;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        /* Schedule View */
+        .schedule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .date-nav {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .date-nav button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: #6e6e73;
+        }
+
+        .bio-rhythm-card {
+            background: linear-gradient(135deg, #e8f5f2 0%, #f0fdf4 100%);
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        .timeline {
+            margin-top: 24px;
+        }
+
+        .timeline-item {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        .timeline-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #5ec4a9;
+            margin-top: 4px;
+            flex-shrink: 0;
+        }
+
+        .timeline-content {
+            flex: 1;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+        }
+
+        .timeline-time {
+            color: #6e6e73;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+
+        .energy-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
+        .energy-high {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .energy-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .energy-low {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        /* Analytics View */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-icon {
+            width: 48px;
+            height: 48px;
+            margin: 0 auto 12px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .stat-change {
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .stat-change.positive {
+            color: #10b981;
+        }
+
+        .stat-change.negative {
+            color: #ef4444;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+        }
+
+        /* Settings View */
+        .settings-layout {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 32px;
+        }
+
+        .settings-nav {
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            height: fit-content;
+        }
+
+        .settings-nav-item {
+            padding: 12px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .settings-nav-item:hover {
+            background: #f5f5f7;
+        }
+
+        .settings-nav-item.active {
+            background: #e8f5f2;
+            color: #5ec4a9;
+        }
+
+        .settings-section {
+            background: white;
+            padding: 32px;
+            border-radius: 12px;
+        }
+
+        .settings-group {
+            margin-bottom: 32px;
+        }
+
+        .settings-group h3 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .settings-group p {
+            color: #6e6e73;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid #f5f5f7;
+        }
+
+        .toggle-switch {
+            width: 48px;
+            height: 28px;
+            background: #d1d1d6;
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #5ec4a9;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s;
+        }
+
+        .toggle-switch.active::after {
+            left: 22px;
+        }
+
+        select {
+            padding: 8px 16px;
+            border: 1px solid #e8e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        /* Video Feed */
+        .video-feed {
+            width: 100%;
+            height: 200px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 16px;
+        }
+
+        .video-feed img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="logo">FOCUSFLOW</div>
+            <nav>
+                <div class="nav-item active" onclick="showView('dashboard')">
+                    🏠 Dashboard
+                </div>
+                <div class="nav-item" onclick="showView('schedule')">
+                    📅 Schedule
+                </div>
+                <div class="nav-item" onclick="showView('analytics')">
+                    📊 Analytics
+                </div>
+                <div class="nav-item" onclick="showView('settings')">
+                    ⚙️ Settings
+                </div>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view">
+                <div class="header">
+                    <h1>Good <span id="greeting"></span>, Abdullah</h1>
+                    <p>Ready to conquer your tasks today?</p>
+                    <div class="privacy-badge">
+                        🔒 Privacy Mode: Local Processing Only
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div>
+                        <!-- Focus Status -->
+                        <div class="card focus-status">
+                            <h3>CURRENT FOCUS</h3>
+                            <div class="focus-meter">
+                                <span id="focus-percentage">82%</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="focus-bar" style="width: 82%"></div>
+                                </div>
+                            </div>
+                            <p class="webcam-status">
+                                <span id="webcam-status">Webcam inactive</span>. Monitoring gaze & posture.
+                            </p>
+                            <button class="mic-button" id="camera-toggle" onclick="toggleCamera()">
+                                📷
+                            </button>
+                            <div id="video-container" class="video-feed hidden">
+                                <img id="video-feed" src="/video_feed" alt="Video Feed">
+                            </div>
+                        </div>
+
+                        <!-- Focus Buddy -->
+                        <div class="card focus-buddy">
+                            <div class="buddy-header">
+                                <div class="buddy-avatar">🤖</div>
+                                <div class="buddy-info">
+                                    <h4>Focus Buddy</h4>
+                                    <p>ALWAYS HERE TO HELP</p>
+                                </div>
+                                <div class="language-badge">English</div>
+                            </div>
+
+                            <div class="buddy-message" id="buddy-message">
+                                Hi Abdullah! I noticed you've been staring at the wall. Let's finish this paragraph together?
+                            </div>
+
+                            <div class="chat-input">
+                                <button class="mic-button" id="mic-toggle" onclick="toggleMicrophone()">🎤</button>
+                                <input type="text" placeholder="Type or speak to Buddy..." id="chat-input" onkeypress="handleChatInput(event)">
+                                <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()">➤</button>
+                            </div>
+                        </div>
+
+                        <!-- Dopamine Menu -->
+                        <div class="card dopamine-menu">
+                            <h4>☕ Dopamine Menu</h4>
+                            <div class="dopamine-grid">
+                                <div class="dopamine-item" onclick="triggerBreak('jumping-jacks')">5 Jumping Jacks</div>
+                                <div class="dopamine-item" onclick="triggerBreak('water')">Drink Water</div>
+                                <div class="dopamine-item" onclick="triggerBreak('pet')">Pet the cat</div>
+                                <div class="dopamine-item" onclick="triggerBreak('stretch')">Stretch</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tasks -->
+                    <div class="card">
+                        <div class="tasks-header">
+                            <h2>Tasks <span class="chunking-badge">Chunking Active</span></h2>
+                            <div class="add-task-btn" onclick="addTask()">+ Add Task</div>
+                        </div>
+
+                        <div id="tasks-container"></div>
+
+                        <div class="activity-insights">
+                            <h4>⚡ Activity Insights</h4>
+                            <p style="color: #6e6e73; font-size: 14px; margin-top: 8px;">
+                                You're making great progress! Keep the momentum going.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule View -->
+            <div id="schedule-view" class="view hidden">
+                <div class="header">
+                    <h1>Your Bio-Rhythm Schedule</h1>
+                    <p>Optimized for your peak focus hours (<span id="peak-hours"></span>)</p>
+                </div>
+
+                <div class="schedule-header">
+                    <h2>📅 Timeline</h2>
+                    <div class="date-nav">
+                        <button>←</button>
+                        <span id="current-date">Today, Dec 17</span>
+                        <button>→</button>
+                    </div>
+                </div>
+
+                <div class="bio-rhythm-card">
+                    <h3>🧠 BIO-RHYTHM INSIGHT</h3>
+                    <h2>Peak Focus Time</h2>
+                    <p id="peak-time-display"></p>
+                    <p style="margin-top: 12px; color: #6e6e73;">
+                        Based on your activity yesterday, you seem most alert in the late morning. 
+                        We've scheduled your hardest tasks (Math, HCI) during this window.
+                    </p>
+                </div>
+
+                <div class="card">
+                    <div class="timeline" id="schedule-timeline"></div>
+                    
+                    <div style="text-align: center; padding: 24px; border: 2px dashed #e8e8ed; border-radius: 12px; cursor: pointer;" onclick="addScheduleTask()">
+                        + Add Task to Schedule
+                    </div>
+                </div>
+
+                <div class="card" style="margin-top: 24px;">
+                    <h3>DAILY STATS</h3>
+                    <div style="margin-top: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                            <span>Scheduled</span>
+                            <span style="font-weight: 600;">4h 30m</span>
+                        </div>
+                        <div class="progress-bar" style="margin-bottom: 16px;">
+                            <div class="progress-fill" style="width: 75%"></div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: space-between;">
+                            <span>Breaks</span>
+                            <span style="font-weight: 600;">45m</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 30%; background: #fbbf24;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics View -->
+            <div id="analytics-view" class="view hidden">
+                <div class="header">
+                    <h1>Weekly Insights</h1>
+                    <p>Understanding your focus patterns to optimize your study routine.</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #e8f5f2;">🧠</div>
+                        <div class="stat-value" id="deep-focus-score">78%</div>
+                        <div style="color: #6e6e73; font-size: 14px;">Deep Focus Score</div>
+                        <div class="stat-change positive">+5%</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #ede9fe;">⏱️</div>
+                        <div class="stat-value" id="total-focus-time">4h 12m</div>
+                        <div style="color: #6e6e73; font-size: 14px;">Total Focus Time</div>
+                        <div class="stat-change positive">+30m</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #dbeafe;">📈</div>
+                        <div class="stat-value" id="consistency">85%</div>
+                        <div style="color: #6e6e73; font-size: 14px;">Consistency</div>
+                        <div class="stat-change positive">Stable</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: #fed7aa;">⚠️</div>
+                        <div class="stat-value" id="distractions">12</div>
+                        <div style="color: #6e6e73; font-size: 14px;">Distractions</div>
+                        <div class="stat-change negative">-3</div>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Focus Rhythm</h3>
+                    <p style="color: #6e6e73; margin-bottom: 24px;">Your attention levels throughout the day</p>
+                    <canvas id="focus-chart" height="80"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Distraction Sources</h3>
+                    <p style="color: #6e6e73; margin-bottom: 24px;">What broke your flow today?</p>
+                    <div id="distraction-chart"></div>
+                </div>
+
+                <div class="card" style="background: linear-gradient(135deg, #e8f5f2 0%, #f0fdf4 100%); margin-top: 24px;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="font-size: 48px;">🧠</div>
+                        <div>
+                            <h3>AI Insight: Peak Performance</h3>
+                            <p style="margin-top: 8px;">Abdullah, your focus consistently peaks between <strong id="peak-insight-time">10:00 AM and 11:30 AM</strong>. We recommend scheduling your most challenging subjects (like Math) during this window for maximum retention.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="settings-view" class="view hidden">
+                <div class="header">
+                    <h1>Settings & Preferences</h1>
+                    <p>Customize your FocusFlow experience to match your needs.</p>
+                </div>
+
+                <div class="settings-layout">
+                    <div class="settings-nav">
+                        <div class="settings-nav-item active" onclick="showSettingsSection('accessibility')">
+                            ♿ Accessibility
+                        </div>
+                        <div class="settings-nav-item" onclick="showSettingsSection('buddy')">
+                            🤖 Focus Buddy
+                        </div>
+                        <div class="settings-nav-item" onclick="showSettingsSection('privacy')">
+                            🔒 Privacy
+                        </div>
+                    </div>
+
+                    <div class="settings-section" id="settings-content">
+                        <!-- Accessibility Settings -->
+                        <div id="accessibility-settings">
+                            <div class="settings-group">
+                                <h3>♿ Accessibility & Sensory</h3>
+                                <p>Adjust the interface for your comfort.</p>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Dyslexia Friendly Font</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Switches text to OpenDyslexic or similar accessible font.
+                                        </p>
+                                    </div>
+                                    <div class="toggle-switch" id="dyslexia-toggle" onclick="toggleSetting('dyslexia_font')"></div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Reduced Motion</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Minimizes animations and transitions.
+                                        </p>
+                                    </div>
+                                    <div class="toggle-switch" id="motion-toggle" onclick="toggleSetting('reduced_motion')"></div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Color Contrast</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Adjust contrast level
+                                        </p>
+                                    </div>
+                                    <select id="contrast-select" onchange="updateSetting('color_contrast', this.value)">
+                                        <option value="Standard">Standard</option>
+                                        <option value="High">High</option>
+                                        <option value="Maximum">Maximum</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="settings-group">
+                                <h3>🤖 Focus Companion</h3>
+                                <p>Configure how your AI buddy interacts with you.</p>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Buddy Persona</strong>
+                                    </div>
+                                    <select id="persona-select" onchange="updateSetting('buddy_persona', this.value)">
+                                        <option value="Friendly Peer">Friendly Peer (Default)</option>
+                                        <option value="Gentle Mentor">Gentle Mentor</option>
+                                        <option value="Motivational Coach">Motivational Coach</option>
+                                    </select>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Primary Language</strong>
+                                    </div>
+                                    <select id="language-select" onchange="updateSetting('language', this.value)">
+                                        <option value="English">English</option>
+                                        <option value="Urdu">Urdu</option>
+                                        <option value="Mixed">Mixed (Code-switching)</option>
+                                    </select>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Proactive Interventions</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Allow Buddy to speak when you lose focus.
+                                        </p>
+                                    </div>
+                                    <div class="toggle-switch active" id="intervention-toggle" onclick="toggleSetting('proactive_interventions')"></div>
+                                </div>
+                            </div>
+
+                            <div class="settings-group">
+                                <h3>🔒 Privacy & Hardware</h3>
+                                <p>Manage permissions and data processing.</p>
+
+                                <div class="card" style="background: #e8f5f2; padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-size: 24px;">🔒</span>
+                                        <div>
+                                            <strong style="color: #5ec4a9;">Local Edge Processing Active</strong>
+                                            <p style="font-size: 12px; margin-top: 4px; color: #6e6e73;">
+                                                Your camera feed is processed on-device and never sent to the cloud.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Camera Access</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Required for gaze tracking.
+                                        </p>
+                                    </div>
+                                    <div class="toggle-switch active" id="camera-access-toggle" onclick="toggleCamera()"></div>
+                                </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Microphone Access</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Required for voice commands.
+                                        </p>
+                                    </div>
+                                    <div class="toggle-switch active" id="mic-access-toggle" onclick="toggleMicrophone()"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let appState = {
+            currentView: 'dashboard',
+            cameraActive: false,
+            microphoneActive: false,
+            focusScore: 82,
+            tasks: [],
+            schedule: [],
+            analytics: {},
+            settings: {}
+        };
+
+        // Initialize app
+        async function init() {
+            updateGreeting();
+            await loadState();
+            renderTasks();
+            setInterval(updateState, 2000); // Update every 2 seconds
+            setInterval(checkBuddyMessages, 3000); // Check for buddy messages
+        }
+
+        function updateGreeting() {
+            const hour = new Date().getHours();
+            let greeting = 'Morning';
+            if (hour >= 12 && hour < 17) greeting = 'Afternoon';
+            else if (hour >= 17) greeting = 'Evening';
+            document.getElementById('greeting').textContent = greeting;
+        }
+
+        async function loadState() {
+            try {
+                const response = await fetch('/api/state');
+                const data = await response.json();
+                appState = {...appState, ...data};
+                updateUI();
+            } catch (error) {
+                console.error('Error loading state:', error);
+            }
+        }
+
+        async function updateState() {
+            await loadState();
+            updateFocusDisplay();
+        }
+
+        function updateFocusDisplay() {
+            const focusPercentage = document.getElementById('focus-percentage');
+            const focusBar = document.getElementById('focus-bar');
+            
+            if (focusPercentage && focusBar) {
+                focusPercentage.textContent = appState.focusScore + '%';
+                focusBar.style.width = appState.focusScore + '%';
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('focus-percentage').textContent = appState.focusScore + '%';
+            document.getElementById('focus-bar').style.width = appState.focusScore + '%';
+            
+            if (appState.cameraActive) {
+                document.getElementById('webcam-status').textContent = 'Webcam active';
+                document.getElementById('video-container').classList.remove('hidden');
+            } else {
+                document.getElementById('webcam-status').textContent = 'Webcam inactive';
+                document.getElementById('video-container').classList.add('hidden');
+            }
+            
+            const micButton = document.getElementById('mic-toggle');
+            if (appState.microphoneActive) {
+                micButton.classList.add('active');
+            } else {
+                micButton.classList.remove('active');
+            }
+        }
+
+        // View management
+        function showView(viewName) {
+            const views = ['dashboard', 'schedule', 'analytics', 'settings'];
+            views.forEach(view => {
+                const element = document.getElementById(view + '-view');
+                if (element) {
+                    element.classList.toggle('hidden', view !== viewName);
+                }
+            });
+
+            // Update nav
+            document.querySelectorAll('.nav-item').forEach((item, index) => {
+                item.classList.toggle('active', views[index] === viewName);
+            });
+
+            appState.currentView = viewName;
+
+            // Load view-specific data
+            if (viewName === 'schedule') loadSchedule();
+            if (viewName === 'analytics') loadAnalytics();
+        }
+
+        // Camera control
+        async function toggleCamera() {
+            try {
+                const response = await fetch('/api/toggle_camera', { method: 'POST' });
+                const data = await response.json();
+                appState.cameraActive = data.camera_active;
+                updateUI();
+            } catch (error) {
+                console.error('Error toggling camera:', error);
+            }
+        }
+
+        // Microphone control
+        async function toggleMicrophone() {
+            try {
+                const response = await fetch('/api/toggle_microphone', { method: 'POST' });
+                const data = await response.json();
+                appState.microphoneActive = data.microphone_active;
+                updateUI();
+            } catch (error) {
+                console.error('Error toggling microphone:', error);
+            }
+        }
+
+        // Buddy messages
+        async function checkBuddyMessages() {
+            try {
+                const response = await fetch('/api/buddy_messages');
+                const messages = await response.json();
+                
+                if (messages.length > 0) {
+                    const buddyMessage = document.getElementById('buddy-message');
+                    buddyMessage.textContent = messages[messages.length - 1];
+                }
+            } catch (error) {
+                console.error('Error checking buddy messages:', error);
+            }
+        }
+
+        function handleChatInput(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const message = input.value.trim();
+            
+            if (message) {
+                // Display user message
+                const buddyMessage = document.getElementById('buddy-message');
+                buddyMessage.textContent = 'You: ' + message;
+                input.value = '';
+                
+                // Simulate response
+                setTimeout(() => {
+                    buddyMessage.textContent = "I'm here to help! Let's stay focused together.";
+                }, 1000);
+            }
+        }
+
+        // Tasks management
+        function renderTasks() {
+            const container = document.getElementById('tasks-container');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            appState.tasks.forEach(task => {
+                const taskHTML = `
+                    <div class="task-group">
+                        <h3>
+                            ${task.title}
+                            <span class="task-progress">${task.completed}/${task.total}</span>
+                        </h3>
+                        ${task.subtasks.map(subtask => `
+                            <div class="subtask">
+                                <div class="checkbox ${subtask.completed ? 'checked' : ''}" 
+                                     onclick="toggleSubtask(${task.id}, ${subtask.id})">
+                                    ${subtask.completed ? '✓' : ''}
+                                </div>
+                                <div class="subtask-text ${subtask.completed ? 'completed' : ''}">
+                                    ${subtask.text}
+                                </div>
+                                <div class="subtask-duration">${subtask.duration}m</div>
+                                <div class="progress-mini">
+                                    <div class="progress-mini-fill" style="width: ${subtask.completed ? '100' : '0'}%"></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                container.innerHTML += taskHTML;
+            });
+        }
+
+        async function toggleSubtask(taskId, subtaskId) {
+            const task = appState.tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            const subtask = task.subtasks.find(st => st.id === subtaskId);
+            if (!subtask) return;
+            
+            subtask.completed = !subtask.completed;
+            task.completed = task.subtasks.filter(st => st.completed).length;
+            
+            renderTasks();
+            
+            // Play success sound or show animation
+            if (subtask.completed) {
+                const buddyMessage = document.getElementById('buddy-message');
+                buddyMessage.textContent = "Great job completing that task! Keep up the momentum! 🎉";
+            }
+        }
+
+        function addTask() {
+            const title = prompt('Enter task title:');
+            if (title) {
+                const newTask = {
+                    id: appState.tasks.length + 1,
+                    title: title,
+                    subtasks: [
+                        { id: 1, text: 'Subtask 1', completed: false, duration: 15 }
+                    ],
+                    completed: 0,
+                    total: 1
+                };
+                appState.tasks.push(newTask);
+                renderTasks();
+            }
+        }
+
+        // Schedule
+        async function loadSchedule() {
+            try {
+                const response = await fetch('/api/schedule');
+                const schedule = await response.json();
+                appState.schedule = schedule;
+                renderSchedule();
+                
+                // Update bio-rhythm display
+                const bioRhythm = appState.bio_rhythm;
+                document.getElementById('peak-hours').textContent = 
+                    `${bioRhythm.peak_start} - ${bioRhythm.peak_end}`;
+                document.getElementById('peak-time-display').textContent = 
+                    `${bioRhythm.peak_start} - ${bioRhythm.peak_end}`;
+            } catch (error) {
+                console.error('Error loading schedule:', error);
+            }
+        }
+
+        function renderSchedule() {
+            const timeline = document.getElementById('schedule-timeline');
+            if (!timeline) return;
+            
+            timeline.innerHTML = '';
+            
+            appState.schedule.forEach(item => {
+                const energyClass = `energy-${item.energy.toLowerCase()}`;
+                const itemHTML = `
+                    <div class="timeline-item">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-time">
+                                ${item.time} (${item.duration}m)
+                                <span class="energy-badge ${energyClass}">
+                                    Energy: ${item.energy}
+                                </span>
+                            </div>
+                            <strong>${item.title}</strong>
+                            ${item.type === 'Deep Focus' ? '<div style="margin-top: 4px; font-size: 12px; color: #6e6e73;">🧠 ' + item.type + '</div>' : ''}
+                        </div>
+                    </div>
+                `;
+                timeline.innerHTML += itemHTML;
+            });
+        }
+
+        function addScheduleTask() {
+            const title = prompt('Enter task to schedule:');
+            if (title) {
+                alert('Task will be scheduled during your next peak focus window!');
+                loadSchedule();
+            }
+        }
+
+        // Analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch('/api/analytics');
+                const analytics = await response.json();
+                appState.analytics = analytics;
+                renderAnalytics();
+            } catch (error) {
+                console.error('Error loading analytics:', error);
+            }
+        }
+
+        function renderAnalytics() {
+            // Update stats
+            document.getElementById('deep-focus-score').textContent = 
+                appState.analytics.deep_focus_score + '%';
+            document.getElementById('total-focus-time').textContent = 
+                appState.analytics.total_focus_time;
+            document.getElementById('consistency').textContent = 
+                appState.analytics.consistency + '%';
+            document.getElementById('distractions').textContent = 
+                appState.analytics.distractions;
+            
+            // Render distraction chart
+            renderDistractionChart();
+        }
+
+        function renderDistractionChart() {
+            const container = document.getElementById('distraction-chart');
+            if (!container) return;
+            
+            const sources = appState.analytics.distraction_sources || {};
+            const total = Object.values(sources).reduce((a, b) => a + b, 0);
+            
+            container.innerHTML = '';
+            Object.entries(sources).forEach(([source, count]) => {
+                const percentage = Math.round((count / total) * 100);
+                const colors = {
+                    'Phone': '#ef4444',
+                    'Noise': '#f59e0b',
+                    'Daydream': '#8b5cf6',
+                    'Fidgeting': '#10b981'
+                };
+                
+                const barHTML = `
+                    <div style="margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span>${source}</span>
+                            <span style="font-weight: 600;">${percentage}%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${percentage}%; background: ${colors[source] || '#5ec4a9'};"></div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += barHTML;
+            });
+        }
+
+        // Settings
+        function showSettingsSection(section) {
+            // Update nav
+            document.querySelectorAll('.settings-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        async function toggleSetting(settingName) {
+            appState.settings[settingName] = !appState.settings[settingName];
+            
+            // Update toggle visual
+            const toggle = event.target;
+            toggle.classList.toggle('active');
+            
+            // Save to backend
+            try {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(appState.settings)
+                });
+            } catch (error) {
+                console.error('Error saving settings:', error);
+            }
+        }
+
+        async function updateSetting(settingName, value) {
+            appState.settings[settingName] = value;
+            
+            try {
+                await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(appState.settings)
+                });
+            } catch (error) {
+                console.error('Error saving settings:', error);
+            }
+        }
+
+        // Dopamine menu
+        function triggerBreak(activity) {
+            const messages = {
+                'jumping-jacks': "Great choice! Do 5 jumping jacks and come back energized! 🤸",
+                'water': "Perfect! Stay hydrated. I'll be here when you get back! 💧",
+                'pet': "Aww, go give your cat some love! See you in a minute! 🐱",
+                'stretch': "Good idea! Stretch those muscles. Your body will thank you! 🧘"
+            };
+            
+            document.getElementById('buddy-message').textContent = messages[activity];
+        }
+
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>
