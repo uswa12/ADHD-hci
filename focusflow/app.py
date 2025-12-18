@@ -1,388 +1,403 @@
 import os
 os.environ['OPENCV_AVFOUNDATION_SKIP_AUTH'] = '1'
-from flask import Flask, render_template, jsonify, request, Response
+
+from flask import Flask, render_template, jsonify, Response, request
 import cv2
 import mediapipe as mp
 import numpy as np
-from datetime import datetime, timedelta
-import json
 import threading
 import time
-import speech_recognition as sr
-from collections import deque
 import subprocess
 import platform
+import random
+import datetime
 
 app = Flask(__name__)
 
-# Global state
+# --- CORE INTELLIGENCE MODULE ---
+class FocusPredictor:
+    def __init__(self):
+        # Adjusted thresholds for higher sensitivity to looking away
+        self.FIDGET_LOW = 0.10  # Very focused
+        self.FIDGET_HIGH = 0.35 # Looking away significantly
+
+    def calculate_focus(self, fidget_score: float) -> float:
+        """Converts raw head deviation into a 0.1 to 1.0 focus ratio."""
+        if fidget_score <= self.FIDGET_LOW:
+            return 1.0
+        elif fidget_score >= self.FIDGET_HIGH:
+            return 0.1
+        else:
+            # Linear drop between the low and high thresholds
+            scale = (fidget_score - self.FIDGET_LOW) / (self.FIDGET_HIGH - self.FIDGET_LOW)
+            return 1.0 - (0.9 * scale)
+
+# --- STATE MANAGEMENT ---
 class FocusFlowState:
     def __init__(self):
         self.camera_active = False
         self.microphone_active = False
-        self.focus_score = 82
-        self.tasks = [
-            {
-                "id": 1,
-                "title": "Review Math Chapter 4",
-                "subtasks": [
-                    {"id": 1, "text": "Read introduction", "completed": False, "duration": 10},
-                    {"id": 2, "text": "Solve practice problems 1-5", "completed": False, "duration": 30}
-                ],
-                "completed": 0,
-                "total": 2
-            },
-            {
-                "id": 2,
-                "title": "Complete HCI Project Proposal",
-                "subtasks": [
-                    {"id": 1, "text": "Write Abstract", "completed": True, "duration": 15},
-                    {"id": 2, "text": "Define User Personas", "completed": False, "duration": 20},
-                    {"id": 3, "text": "Draft Methodology", "completed": False, "duration": 25}
-                ],
-                "completed": 1,
-                "total": 3
-            }
-        ]
-        self.schedule = []
-        self.bio_rhythm = {"peak_start": "10:00 AM", "peak_end": "01:00 PM"}
+        self.focus_score = 100
+        self.fidget_score_global = 0.0
+        self.predictor = FocusPredictor()
+        self.data_lock = threading.Lock()
+        self.latest_frame = None
+        self.total_sessions = 0
+        self.total_focus_accumulated = 0
+        self.distraction_count = 0
+        self.start_time = time.time()
+        
+        # Historical focus for bio-rhythm
+        self.focus_history = {}  # hour: list of scores
+        
+        # UI Data
+        self.tasks = []
+
+        # Real-time analytics structure
         self.analytics = {
-            "deep_focus_score": 78,
-            "total_focus_time": "4h 12m",
-            "consistency": 85,
-            "distractions": 12,
-            "focus_rhythm": [],
-            "distraction_sources": {"Phone": 45, "Noise": 25, "Daydream": 60, "Fidgeting": 30}
+            "deep_focus_score": 100,
+            "total_focus_time": "0h 0m",
+            "consistency": 100,
+            "distractions": 0,
+            "distraction_sources": {"Phone": 0, "Noise": 0, "Daydream": 0, "Fidgeting": 0},
+            "peak_insight_time": "10:00 AM - 11:30 AM"
         }
         self.settings = {
-            "buddy_persona": "Friendly Peer",
-            "language": "English",
             "proactive_interventions": True,
             "dyslexia_font": False,
             "reduced_motion": False,
-            "color_contrast": "Standard"
+            "color_contrast": "Standard",
+            "buddy_persona": "Friendly Peer",
+            "language": "English"
         }
-        self.gaze_data = deque(maxlen=100)
-        self.posture_data = deque(maxlen=100)
-        self.distraction_count = 0
-        self.current_session_start = None
-        self.focus_history = []
+        self.buddy_messages_queue = []
+
+    def update_live_analytics(self):
+        """Calculates analytics based on the current session performance."""
+        # Note: self.data_lock is already held when this is called from the camera loop
         
+        # 1. Update Distractions if focus is very low (ADHD threshold)
+        if self.focus_score < 30:
+            self.distraction_count += 1
+            sources = ["Phone", "Noise", "Daydream", "Fidgeting"]
+            source = random.choice(sources)
+            self.analytics["distraction_sources"][source] += 1
+        
+        # 2. Update Total Elapsed Time
+        elapsed_minutes = int((time.time() - self.start_time) / 60)
+        hours = elapsed_minutes // 60
+        mins = elapsed_minutes % 60
+        self.analytics["total_focus_time"] = f"{hours}h {mins}m"
+        
+        # 3. Dynamic Deep Focus Score (Running average of the session)
+        self.total_sessions += 1
+        self.total_focus_accumulated += self.focus_score
+        self.analytics["deep_focus_score"] = int(self.total_focus_accumulated / self.total_sessions)
+        
+        # 4. Total Distraction Counter
+        self.analytics["distractions"] = self.distraction_count
+
+        # 5. Update consistency (simple std dev approximation)
+        self.analytics["consistency"] = max(0, 100 - (self.distraction_count * 5))
+
 state = FocusFlowState()
 
-# MediaPipe setup
-mp_face_mesh = mp.solutions.face_mesh
+# MediaPipe Setup
+mp_drawing = mp.solutions.drawing_utils
 mp_pose = mp.solutions.pose
-face_mesh = mp_face_mesh.FaceMesh(min_detection_confidence=0.5, min_tracking_confidence=0.5)
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+# Using Pose tracker for stable ear and nose detection
+pose_tracker = mp_pose.Pose(min_detection_confidence=0.6, min_tracking_confidence=0.6)
 
-# Speech setup
-recognizer = sr.Recognizer()
+# --- COMPUTER VISION LOGIC ---
 
-# TTS setup - Use system TTS on macOS, fallback for other systems
-def init_tts():
-    """Initialize text-to-speech engine based on platform"""
-    system = platform.system()
-    if system == "Darwin":  # macOS
-        return None  # Will use 'say' command
-    else:
-        try:
-            import pyttsx3
-            engine = pyttsx3.init()
-            engine.setProperty('rate', 150)
-            return engine
-        except:
-            print("Warning: TTS not available")
-            return None
+def get_head_angles(landmarks, image_w, image_h):
+    """
+    Detects if the user is looking away by checking the nose position 
+    relative to the distance between the ears.
+    """
+    try:
+        nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
+        l_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
+        r_ear = landmarks[mp_pose.PoseLandmark.RIGHT_EAR.value]
 
-tts_engine = init_tts()
+        # 1. Baseline: Distance between ears represents head width in 3D space
+        head_width = abs(l_ear.x - r_ear.x)
+        
+        # 2. Midpoint: The center line of the face
+        ear_mid_x = (l_ear.x + r_ear.x) / 2
 
-# Voice commands queue
-voice_commands_queue = []
-buddy_messages_queue = []
+        # 3. Deviation: How far the nose has turned away from the center line
+        yaw_deviation = abs(nose.x - ear_mid_x) / (head_width / 2)
 
-def calculate_gaze_focus(landmarks):
-    """Calculate focus score based on eye gaze direction"""
-    if not landmarks:
-        return 50
-    
-    # Simple heuristic: check if eyes are looking forward
-    left_eye = landmarks[33]
-    right_eye = landmarks[263]
-    nose = landmarks[1]
-    
-    # Calculate if gaze is centered (simplified)
-    eye_center_x = (left_eye.x + right_eye.x) / 2
-    deviation = abs(eye_center_x - nose.x)
-    
-    focus_score = max(0, 100 - (deviation * 1000))
-    return min(100, focus_score)
+        return min(yaw_deviation, 1.0)
+    except Exception:
+        # If landmarks are lost (head turned too far), assume distracted
+        return 0.8 
 
-def calculate_posture_score(landmarks):
-    """Calculate posture score"""
-    if not landmarks:
-        return 50
-    
-    # Check shoulder and neck alignment
-    left_shoulder = landmarks[11]
-    right_shoulder = landmarks[12]
-    nose = landmarks[0]
-    
-    # Calculate shoulder balance
-    shoulder_diff = abs(left_shoulder.y - right_shoulder.y)
-    posture_score = max(0, 100 - (shoulder_diff * 500))
-    
-    return min(100, posture_score)
-
-def generate_frames():
-    """Generate video frames with face/pose detection"""
+def camera_loop():
+    """Background thread for continuous processing."""
     camera = cv2.VideoCapture(0)
-    
-    while state.camera_active:
+    while True:
+        with state.data_lock:
+            active = state.camera_active
+        if not active:
+            time.sleep(0.1)
+            continue
+
         success, frame = camera.read()
         if not success:
-            break
-        
-        # Convert to RGB for MediaPipe
+            continue
+
+        h, w, _ = frame.shape
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Face detection for gaze tracking
-        face_results = face_mesh.process(rgb_frame)
-        pose_results = pose.process(rgb_frame)
-        
-        focus_score = 50
-        posture_score = 50
-        
-        if face_results.multi_face_landmarks:
-            for face_landmarks in face_results.multi_face_landmarks:
-                focus_score = calculate_gaze_focus(face_landmarks.landmark)
-                state.gaze_data.append(focus_score)
-        
-        if pose_results.pose_landmarks:
-            posture_score = calculate_posture_score(pose_results.pose_landmarks.landmark)
-            state.posture_data.append(posture_score)
-        
-        # Update overall focus score
-        if len(state.gaze_data) > 0:
-            avg_gaze = sum(state.gaze_data) / len(state.gaze_data)
-            avg_posture = sum(state.posture_data) / len(state.posture_data) if len(state.posture_data) > 0 else 50
-            state.focus_score = int((avg_gaze * 0.7 + avg_posture * 0.3))
+        results = pose_tracker.process(rgb_frame)
+
+        if results.pose_landmarks:
+            mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
             
-            # Trigger intervention if focus drops
-            if state.focus_score < 60 and state.settings['proactive_interventions']:
-                trigger_buddy_intervention()
-        
-        # Draw on frame
-        cv2.putText(frame, f"Focus: {state.focus_score}%", (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        
-        ret, buffer = cv2.imencode('.jpg', frame)
-        frame = buffer.tobytes()
-        
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-    
+            # 1. Calculate raw gaze deviation outside the lock for performance
+            current_raw_val = get_head_angles(results.pose_landmarks.landmark, w, h)
+            
+            with state.data_lock:
+                # 2. Update global score with Smoothing
+                state.fidget_score_global = 0.7 * state.fidget_score_global + 0.3 * current_raw_val
+                
+                # 3. Predict focus percentage
+                focus_ratio = state.predictor.calculate_focus(state.fidget_score_global)
+                state.focus_score = int(focus_ratio * 100)
+
+                # 4. Record to history
+                current_hour = datetime.datetime.now().hour
+                if current_hour not in state.focus_history:
+                    state.focus_history[current_hour] = []
+                state.focus_history[current_hour].append(state.focus_score)
+
+                # 5. Trigger Live Analytics update
+                state.update_live_analytics()
+
+                # Update peak insight based on history
+                hour_averages = {h: sum(scores)/len(scores) if scores else 0 for h, scores in state.focus_history.items()}
+                if hour_averages:
+                    peak_hour = max(hour_averages, key=hour_averages.get)
+                    peak_start = f"{peak_hour:02d}:00"
+                    peak_end = f"{(peak_hour + 1) % 24:02d}:00"
+                    state.analytics["peak_insight_time"] = f"{peak_start} AM - {peak_end} AM" if peak_hour < 12 else f"{peak_start} PM - {peak_end} PM"
+
+                # Overlay for the video feed
+                color = (0, 255, 0) if state.focus_score > 50 else (0, 0, 255)
+                cv2.putText(frame, f"Focus: {state.focus_score}%", (20, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, color, 2)
+
+                # Intervention logic
+                if state.focus_score < 40 and state.settings['proactive_interventions']:
+                    trigger_buddy_intervention()
+
+        with state.data_lock:
+            state.latest_frame = frame.copy()
+
     camera.release()
 
+# --- BUDDY & API ROUTES ---
 def trigger_buddy_intervention():
-    """Trigger AI buddy to speak when focus drops"""
-    messages = [
-        "Hi Abdullah! I noticed you've been staring at the wall. Let's finish this paragraph together?",
-        "Abdullah, you seem a bit distracted. Should we take a quick 2-minute break?",
-        "Hey! Your focus is slipping. Let's tackle the next small task.",
-        "I see you're struggling. Want to switch to an easier task for now?"
-    ]
-    
-    if len(buddy_messages_queue) == 0:
-        import random
-        message = random.choice(messages)
-        buddy_messages_queue.append(message)
-        
-        # Speak the message
-        threading.Thread(target=speak_message, args=(message,)).start()
+    personas = {
+        "Friendly Peer": ["Hey, focus is slipping!", "Come on, eyes on the screen!", "Let's get back to it."],
+        "Gentle Mentor": ["I notice your attention wandering.", "Let's gently return to the task.", "Take a breath and refocus."],
+        "Motivational Coach": ["You got this! Snap back!", "Don't let distractions win!", "Push through! Focus now!"]
+    }
+    msgs = personas.get(state.settings.get('buddy_persona', 'Friendly Peer'), ["Focus!"])
+    if not state.buddy_messages_queue:
+        msg = random.choice(msgs)
+        state.buddy_messages_queue.append(msg)
+        threading.Thread(target=speak_message, args=(msg,), daemon=True).start()
 
 def speak_message(message):
-    """Text-to-speech for buddy messages - macOS compatible"""
     try:
-        if platform.system() == "Darwin":  # macOS
-            # Use native macOS 'say' command
-            subprocess.run(['say', message], check=False)
-        elif tts_engine:
-            tts_engine.say(message)
-            tts_engine.runAndWait()
-        else:
-            print(f"TTS: {message}")
-    except Exception as e:
-        print(f"TTS error: {e}")
+        if platform.system() == "Darwin": subprocess.run(['say', message])
+        else: print(f"Buddy: {message}")
+    except: pass
 
-def listen_for_voice_commands():
-    """Continuously listen for voice commands"""
-    while state.microphone_active:
-        try:
-            with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                audio = recognizer.listen(source, timeout=3, phrase_time_limit=5)
-                
-                text = recognizer.recognize_google(audio).lower()
-                voice_commands_queue.append(text)
-                
-                # Process commands
-                process_voice_command(text)
-                
-        except sr.WaitTimeoutError:
-            continue
-        except sr.UnknownValueError:
-            continue
-        except Exception as e:
-            print(f"Voice recognition error: {e}")
-            time.sleep(1)
-
-def process_voice_command(command):
-    """Process voice commands"""
-    if "take a break" in command or "break" in command:
-        buddy_messages_queue.append("Sure! Taking a 5-minute break. Stretch and hydrate!")
-        speak_message("Sure! Taking a 5-minute break.")
-    
-    elif "how am i doing" in command or "progress" in command:
-        msg = f"You're doing great! Your focus score is {state.focus_score}%."
-        buddy_messages_queue.append(msg)
-        speak_message(msg)
-    
-    elif "complete task" in command or "finish task" in command:
-        msg = "Task marked as complete! Great job!"
-        buddy_messages_queue.append(msg)
-        speak_message(msg)
-
-# Routes
 @app.route('/')
-def index():
-    return render_template('index.html')
+def index(): return render_template('index.html')
 
 @app.route('/api/state')
 def get_state():
-    """Get current application state"""
-    return jsonify({
-        'focus_score': state.focus_score,
-        'camera_active': state.camera_active,
-        'microphone_active': state.microphone_active,
-        'tasks': state.tasks,
-        'analytics': state.analytics,
-        'settings': state.settings,
-        'bio_rhythm': state.bio_rhythm
-    })
+    with state.data_lock:
+        return jsonify({
+            'focus_score': state.focus_score,
+            'camera_active': state.camera_active,
+            'microphone_active': state.microphone_active,
+            'tasks': state.tasks,
+            'analytics': state.analytics,
+            'settings': state.settings
+        })
 
-@app.route('/api/tasks', methods=['GET', 'POST', 'PUT'])
-def tasks():
-    if request.method == 'GET':
-        return jsonify(state.tasks)
+@app.route('/api/schedule')
+def get_schedule():
+    date_param = request.args.get('date', datetime.date.today().isoformat())
+    try:
+        sched_date = datetime.date.fromisoformat(date_param)
+    except:
+        sched_date = datetime.date.today()
+    is_future = sched_date > datetime.date.today()
     
-    elif request.method == 'POST':
-        new_task = request.json
-        new_task['id'] = len(state.tasks) + 1
-        state.tasks.append(new_task)
-        return jsonify(new_task)
+    with state.data_lock:
+        hour_averages = {h: sum(scores)/len(scores) if scores else 0 for h, scores in state.focus_history.items()}
+        if hour_averages:
+            peak_hour = max(hour_averages, key=hour_averages.get)
+            peak_start = f"{peak_hour:02d}:00"
+            peak_end = f"{(peak_hour + 2) % 24:02d}:00"
+        else:
+            peak_start = "09:00"
+            peak_end = "11:00"
     
-    elif request.method == 'PUT':
-        task_id = request.json.get('id')
-        for task in state.tasks:
-            if task['id'] == task_id:
-                task.update(request.json)
-                return jsonify(task)
-        return jsonify({'error': 'Task not found'}), 404
+        # Get unfinished tasks
+        unfinished_tasks = [t for t in state.tasks if t['completed'] < t['total']]
+        schedule = []
+        current_time = datetime.datetime.strptime(peak_start, "%H:%M")
+        for task in unfinished_tasks:
+            remaining_duration = sum(st['duration'] for st in task['subtasks'] if not st['completed'])
+            if remaining_duration > 0:
+                schedule.append({
+                    'time': current_time.strftime("%H:%M"),
+                    'duration': remaining_duration,
+                    'title': task['title'],
+                    'energy': 'High',
+                    'type': 'Deep Focus'
+                })
+                current_time += datetime.timedelta(minutes=remaining_duration)
+                # Add break
+                break_duration = 15
+                schedule.append({
+                    'time': current_time.strftime("%H:%M"),
+                    'duration': break_duration,
+                    'title': 'Short Break',
+                    'energy': 'Low'
+                })
+                current_time += datetime.timedelta(minutes=break_duration)
+        
+        # Calculate daily stats
+        total_scheduled = sum(item['duration'] for item in schedule if 'Break' not in item['title'])
+        total_breaks = sum(item['duration'] for item in schedule if 'Break' in item['title'])
+        scheduled_str = f"{total_scheduled // 60}h {total_scheduled % 60}m"
+        breaks_str = f"{total_breaks // 60}h {total_breaks % 60}m"
+        daily_stats = {'scheduled': scheduled_str, 'breaks': breaks_str}
+    
+    bio_rhythm = {'peak_start': peak_start, 'peak_end': peak_end}
+    return jsonify({'schedule': schedule, 'bio_rhythm': bio_rhythm, 'daily_stats': daily_stats})
 
 @app.route('/api/toggle_camera', methods=['POST'])
 def toggle_camera():
-    state.camera_active = not state.camera_active
-    if state.camera_active:
-        state.current_session_start = datetime.now()
+    with state.data_lock:
+        state.camera_active = not state.camera_active
     return jsonify({'camera_active': state.camera_active})
 
 @app.route('/api/toggle_microphone', methods=['POST'])
 def toggle_microphone():
-    state.microphone_active = not state.microphone_active
-    
-    if state.microphone_active:
-        # Start voice recognition thread
-        threading.Thread(target=listen_for_voice_commands, daemon=True).start()
-    
+    with state.data_lock:
+        state.microphone_active = not state.microphone_active
     return jsonify({'microphone_active': state.microphone_active})
-
-@app.route('/api/buddy_messages')
-def buddy_messages():
-    """Get recent buddy messages"""
-    messages = buddy_messages_queue.copy()
-    buddy_messages_queue.clear()
-    return jsonify(messages)
-
-@app.route('/api/schedule')
-def get_schedule():
-    """Generate optimized schedule based on bio-rhythm"""
-    schedule = []
-    current_time = datetime.now().replace(hour=9, minute=0, second=0)
-    
-    # Sort tasks by difficulty/duration
-    all_subtasks = []
-    for task in state.tasks:
-        for subtask in task['subtasks']:
-            if not subtask['completed']:
-                all_subtasks.append({
-                    'task_title': task['title'],
-                    'subtask': subtask['text'],
-                    'duration': subtask['duration']
-                })
-    
-    # Schedule hard tasks during peak hours
-    for i, subtask in enumerate(all_subtasks):
-        schedule.append({
-            'time': current_time.strftime('%I:%M %p'),
-            'duration': subtask['duration'],
-            'title': subtask['subtask'],
-            'energy': 'High' if 10 <= current_time.hour <= 13 else 'Medium',
-            'type': 'Deep Focus' if subtask['duration'] > 20 else 'Task'
-        })
-        
-        current_time += timedelta(minutes=subtask['duration'])
-        
-        # Add breaks
-        if i < len(all_subtasks) - 1:
-            schedule.append({
-                'time': current_time.strftime('%I:%M %p'),
-                'duration': 15,
-                'title': 'Break: Stretch & Hydrate',
-                'energy': 'Low',
-                'type': 'Break'
-            })
-            current_time += timedelta(minutes=15)
-    
-    return jsonify(schedule)
-
-@app.route('/api/analytics')
-def get_analytics():
-    """Get analytics data"""
-    # Generate focus rhythm data
-    focus_rhythm = []
-    for hour in range(9, 16):
-        focus_rhythm.append({
-            'time': f"{hour}am" if hour < 12 else f"{hour-12}pm",
-            'value': np.random.randint(50, 100)
-        })
-    
-    state.analytics['focus_rhythm'] = focus_rhythm
-    return jsonify(state.analytics)
-
-@app.route('/api/settings', methods=['GET', 'POST'])
-def settings():
-    if request.method == 'GET':
-        return jsonify(state.settings)
-    else:
-        state.settings.update(request.json)
-        return jsonify(state.settings)
 
 @app.route('/video_feed')
 def video_feed():
-    """Video streaming route"""
-    return Response(generate_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+    def generate():
+        while True:
+            with state.data_lock:
+                frame = state.latest_frame
+            if frame is not None:
+                ret, buffer = cv2.imencode('.jpg', frame)
+                yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            time.sleep(0.04)
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/api/buddy_messages')
+def get_buddy_messages():
+    with state.data_lock:
+        msgs = list(state.buddy_messages_queue)
+        state.buddy_messages_queue.clear()
+        return jsonify(msgs)
+
+@app.route('/api/add_task', methods=['POST'])
+def add_task():
+    data = request.json
+    title = data['title']
+    title_lower = title.lower()
+    if "essay" in title_lower:
+        subtasks = [
+            {"id": 1, "text": "Brainstorm ideas", "completed": False, "duration": 20},
+            {"id": 2, "text": "Outline structure", "completed": False, "duration": 15},
+            {"id": 3, "text": "Write draft", "completed": False, "duration": 60},
+            {"id": 4, "text": "Edit and conclude", "completed": False, "duration": 30}
+        ]
+    elif "proposal" in title_lower:
+        subtasks = [
+            {"id": 1, "text": "Research topic", "completed": False, "duration": 30},
+            {"id": 2, "text": "Outline proposal", "completed": False, "duration": 20},
+            {"id": 3, "text": "Write sections", "completed": False, "duration": 45},
+            {"id": 4, "text": "Review and refine", "completed": False, "duration": 25}
+        ]
+    elif "report" in title_lower:
+        subtasks = [
+            {"id": 1, "text": "Gather data", "completed": False, "duration": 40},
+            {"id": 2, "text": "Analyze findings", "completed": False, "duration": 30},
+            {"id": 3, "text": "Write report", "completed": False, "duration": 50},
+            {"id": 4, "text": "Proofread", "completed": False, "duration": 20}
+        ]
+    elif "presentation" in title_lower:
+        subtasks = [
+            {"id": 1, "text": "Research content", "completed": False, "duration": 25},
+            {"id": 2, "text": "Create slides", "completed": False, "duration": 35},
+            {"id": 3, "text": "Practice delivery", "completed": False, "duration": 30},
+            {"id": 4, "text": "Finalize", "completed": False, "duration": 15}
+        ]
+    elif "homework" in title_lower:
+        subtasks = [
+            {"id": 1, "text": "Understand assignment", "completed": False, "duration": 10},
+            {"id": 2, "text": "Complete exercises", "completed": False, "duration": 40},
+            {"id": 3, "text": "Check answers", "completed": False, "duration": 15}
+        ]
+    else:
+        subtasks = [
+            {"id": 1, "text": f"Prepare for {title}", "completed": False, "duration": 15},
+            {"id": 2, "text": "Execute main task", "completed": False, "duration": 30},
+            {"id": 3, "text": "Review and finish", "completed": False, "duration": 15}
+        ]
+    new_task = {
+        "id": len(state.tasks) + 1,
+        "title": title,
+        "completed": 0,
+        "total": len(subtasks),
+        "subtasks": subtasks
+    }
+    with state.data_lock:
+        state.tasks.append(new_task)
+    return jsonify(new_task)
+
+@app.route('/api/toggle_subtask', methods=['POST'])
+def toggle_subtask():
+    data = request.json
+    with state.data_lock:
+        task = next((t for t in state.tasks if t['id'] == data['task_id']), None)
+        if task:
+            sub = next((s for s in task['subtasks'] if s['id'] == data['subtask_id']), None)
+            if sub:
+                sub['completed'] = not sub['completed']
+                task['completed'] = sum(s['completed'] for s in task['subtasks'])
+    return jsonify({'success': True})
+
+@app.route('/api/analytics')
+def get_analytics():
+    with state.data_lock:
+        return jsonify(state.analytics)
+
+@app.route('/api/settings', methods=['POST'])
+def update_settings():
+    data = request.json
+    with state.data_lock:
+        state.settings.update(data)
+    return jsonify({'success': True})
+
+# Start background thread
+threading.Thread(target=camera_loop, daemon=True).start()
 
 if __name__ == '__main__':
     app.run(debug=True, threaded=True, port=5000)

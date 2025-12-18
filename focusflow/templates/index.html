@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FocusFlow - ADHD Study Assistant</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=OpenDyslexic&display=swap">
     <style>
         * {
             margin: 0;
@@ -15,6 +16,10 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: #f5f5f7;
             color: #1d1d1f;
+        }
+        #focus-chart {
+            height: 350px !important;
+            width: 100% !important;
         }
 
         .app-container {
@@ -655,7 +660,29 @@
         .hidden {
             display: none;
         }
+
+        /* Dynamic Settings Styles */
+        body.dyslexia-font {
+            font-family: 'OpenDyslexic', sans-serif !important;
+        }
+
+        body.reduced-motion * {
+            animation: none !important;
+            transition: none !important;
+        }
+
+        body.high-contrast {
+            color: #000000 !important;
+            background: #FFFFFF !important;
+        }
+
+        body.maximum-contrast {
+            color: #000000 !important;
+            background: #FFFFFF !important;
+            filter: contrast(200%);
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -663,16 +690,16 @@
         <div class="sidebar">
             <div class="logo">FOCUSFLOW</div>
             <nav>
-                <div class="nav-item active" onclick="showView('dashboard')">
+                <div class="nav-item active" id="nav-dashboard" onclick="showView('dashboard')">
                     🏠 Dashboard
                 </div>
-                <div class="nav-item" onclick="showView('schedule')">
+                <div class="nav-item" id="nav-schedule" onclick="showView('schedule')">
                     📅 Schedule
                 </div>
-                <div class="nav-item" onclick="showView('analytics')">
+                <div class="nav-item" id="nav-analytics" onclick="showView('analytics')">
                     📊 Analytics
                 </div>
-                <div class="nav-item" onclick="showView('settings')">
+                <div class="nav-item" id="nav-settings" onclick="showView('settings')">
                     ⚙️ Settings
                 </div>
             </nav>
@@ -683,9 +710,9 @@
             <!-- Dashboard View -->
             <div id="dashboard-view" class="view">
                 <div class="header">
-                    <h1>Good <span id="greeting"></span>, Abdullah</h1>
-                    <p>Ready to conquer your tasks today?</p>
-                    <div class="privacy-badge">
+                    <h1 id="greeting-prefix">Good <span id="greeting"></span>, Friend</h1>
+                    <p id="ready-text">Ready to conquer your tasks today?</p>
+                    <div class="privacy-badge" id="privacy-badge">
                         🔒 Privacy Mode: Local Processing Only
                     </div>
                 </div>
@@ -694,13 +721,14 @@
                     <div>
                         <!-- Focus Status -->
                         <div class="card focus-status">
-                            <h3>CURRENT FOCUS</h3>
+                            <h3 id="current-focus-label">CURRENT FOCUS</h3>
                             <div class="focus-meter">
-                                <span id="focus-percentage">82%</span>
+                                <span id="focus-percentage">0%</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="focus-bar" style="width: 82%"></div>
+                                    <div class="progress-fill" id="focus-bar" style="width:0%"></div>
                                 </div>
                             </div>
+
                             <p class="webcam-status">
                                 <span id="webcam-status">Webcam inactive</span>. Monitoring gaze & posture.
                             </p>
@@ -717,14 +745,14 @@
                             <div class="buddy-header">
                                 <div class="buddy-avatar">🤖</div>
                                 <div class="buddy-info">
-                                    <h4>Focus Buddy</h4>
-                                    <p>ALWAYS HERE TO HELP</p>
+                                    <h4 id="focus-buddy-title">Focus Buddy</h4>
+                                    <p id="buddy-help-text">ALWAYS HERE TO HELP</p>
                                 </div>
-                                <div class="language-badge">English</div>
+                                <div class="language-badge" id="current-lang-badge">English</div>
                             </div>
 
                             <div class="buddy-message" id="buddy-message">
-                                Hi Abdullah! I noticed you've been staring at the wall. Let's finish this paragraph together?
+                                Hi Friend! I noticed you've been staring at the wall. Let's finish this paragraph together?
                             </div>
 
                             <div class="chat-input">
@@ -736,7 +764,7 @@
 
                         <!-- Dopamine Menu -->
                         <div class="card dopamine-menu">
-                            <h4>☕ Dopamine Menu</h4>
+                            <h4 id="dopamine-menu-title">☕ Dopamine Menu</h4>
                             <div class="dopamine-grid">
                                 <div class="dopamine-item" onclick="triggerBreak('jumping-jacks')">5 Jumping Jacks</div>
                                 <div class="dopamine-item" onclick="triggerBreak('water')">Drink Water</div>
@@ -749,15 +777,15 @@
                     <!-- Tasks -->
                     <div class="card">
                         <div class="tasks-header">
-                            <h2>Tasks <span class="chunking-badge">Chunking Active</span></h2>
-                            <div class="add-task-btn" onclick="addTask()">+ Add Task</div>
+                            <h2 id="tasks-title">Tasks <span class="chunking-badge" id="chunking-badge">Chunking Active</span></h2>
+                            <div class="add-task-btn" id="add-task-btn" onclick="addTask()">+ Add Task</div>
                         </div>
 
                         <div id="tasks-container"></div>
 
                         <div class="activity-insights">
-                            <h4>⚡ Activity Insights</h4>
-                            <p style="color: #6e6e73; font-size: 14px; margin-top: 8px;">
+                            <h4 id="activity-insights-title">⚡ Activity Insights</h4>
+                            <p id="activity-insights-desc" style="color: #6e6e73; font-size: 14px; margin-top: 8px;">
                                 You're making great progress! Keep the momentum going.
                             </p>
                         </div>
@@ -768,25 +796,25 @@
             <!-- Schedule View -->
             <div id="schedule-view" class="view hidden">
                 <div class="header">
-                    <h1>Your Bio-Rhythm Schedule</h1>
-                    <p>Optimized for your peak focus hours (<span id="peak-hours"></span>)</p>
+                    <h1 id="schedule-title">Your Bio-Rhythm Schedule</h1>
+                    <p id="schedule-desc">Optimized for your peak focus hours (<span id="peak-hours"></span>)</p>
                 </div>
 
                 <div class="schedule-header">
-                    <h2>📅 Timeline</h2>
+                    <h2 id="timeline-title">📅 Timeline</h2>
                     <div class="date-nav">
-                        <button>←</button>
+                        <button onclick="prevDay()">←</button>
                         <span id="current-date">Today, Dec 17</span>
-                        <button>→</button>
+                        <button onclick="nextDay()">→</button>
                     </div>
                 </div>
 
                 <div class="bio-rhythm-card">
-                    <h3>🧠 BIO-RHYTHM INSIGHT</h3>
-                    <h2>Peak Focus Time</h2>
+                    <h3 id="bio-rhythm-title">🧠 BIO-RHYTHM INSIGHT</h3>
+                    <h2 id="peak-focus-title">Peak Focus Time</h2>
                     <p id="peak-time-display"></p>
-                    <p style="margin-top: 12px; color: #6e6e73;">
-                        Based on your activity yesterday, you seem most alert in the late morning. 
+                    <p id="bio-insight" style="margin-top: 12px; color: #6e6e73;">
+                        Based on your activity yesterday, you seem most alert in the late morning.
                         We've scheduled your hardest tasks (Math, HCI) during this window.
                     </p>
                 </div>
@@ -794,25 +822,25 @@
                 <div class="card">
                     <div class="timeline" id="schedule-timeline"></div>
                     
-                    <div style="text-align: center; padding: 24px; border: 2px dashed #e8e8ed; border-radius: 12px; cursor: pointer;" onclick="addScheduleTask()">
+                    <div id="add-schedule-btn" style="text-align: center; padding: 24px; border: 2px dashed #e8e8ed; border-radius: 12px; cursor: pointer;" onclick="addScheduleTask()">
                         + Add Task to Schedule
                     </div>
                 </div>
 
                 <div class="card" style="margin-top: 24px;">
-                    <h3>DAILY STATS</h3>
+                    <h3 id="daily-stats-title">DAILY STATS</h3>
                     <div style="margin-top: 16px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-                            <span>Scheduled</span>
-                            <span style="font-weight: 600;">4h 30m</span>
+                            <span id="scheduled-label">Scheduled</span>
+                            <span style="font-weight: 600;" id="scheduled-time">4h 30m</span>
                         </div>
                         <div class="progress-bar" style="margin-bottom: 16px;">
                             <div class="progress-fill" style="width: 75%"></div>
                         </div>
                         
                         <div style="display: flex; justify-content: space-between;">
-                            <span>Breaks</span>
-                            <span style="font-weight: 600;">45m</span>
+                            <span id="breaks-label">Breaks</span>
+                            <span style="font-weight: 600;" id="breaks-time">45m</span>
                         </div>
                         <div class="progress-bar">
                             <div class="progress-fill" style="width: 30%; background: #fbbf24;"></div>
@@ -824,49 +852,49 @@
             <!-- Analytics View -->
             <div id="analytics-view" class="view hidden">
                 <div class="header">
-                    <h1>Weekly Insights</h1>
-                    <p>Understanding your focus patterns to optimize your study routine.</p>
+                    <h1 id="analytics-title">Weekly Insights</h1>
+                    <p id="analytics-desc">Understanding your focus patterns to optimize your study routine.</p>
                 </div>
 
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon" style="background: #e8f5f2;">🧠</div>
                         <div class="stat-value" id="deep-focus-score">78%</div>
-                        <div style="color: #6e6e73; font-size: 14px;">Deep Focus Score</div>
+                        <div style="color: #6e6e73; font-size: 14px;" id="deep-focus-label">Deep Focus Score</div>
                         <div class="stat-change positive">+5%</div>
                     </div>
 
                     <div class="stat-card">
                         <div class="stat-icon" style="background: #ede9fe;">⏱️</div>
                         <div class="stat-value" id="total-focus-time">4h 12m</div>
-                        <div style="color: #6e6e73; font-size: 14px;">Total Focus Time</div>
+                        <div style="color: #6e6e73; font-size: 14px;" id="total-focus-label">Total Focus Time</div>
                         <div class="stat-change positive">+30m</div>
                     </div>
 
                     <div class="stat-card">
                         <div class="stat-icon" style="background: #dbeafe;">📈</div>
                         <div class="stat-value" id="consistency">85%</div>
-                        <div style="color: #6e6e73; font-size: 14px;">Consistency</div>
+                        <div style="color: #6e6e73; font-size: 14px;" id="consistency-label">Consistency</div>
                         <div class="stat-change positive">Stable</div>
                     </div>
 
                     <div class="stat-card">
                         <div class="stat-icon" style="background: #fed7aa;">⚠️</div>
                         <div class="stat-value" id="distractions">12</div>
-                        <div style="color: #6e6e73; font-size: 14px;">Distractions</div>
+                        <div style="color: #6e6e73; font-size: 14px;" id="distractions-label">Distractions</div>
                         <div class="stat-change negative">-3</div>
                     </div>
                 </div>
 
                 <div class="chart-container">
-                    <h3>Focus Rhythm</h3>
-                    <p style="color: #6e6e73; margin-bottom: 24px;">Your attention levels throughout the day</p>
-                    <canvas id="focus-chart" height="80"></canvas>
+                    <h3 id="focus-rhythm-title">Focus Rhythm</h3>
+                    <p style="color: #6e6e73; margin-bottom: 24px;" id="focus-rhythm-desc">Your attention levels throughout the day</p>
+                    <canvas id="focus-chart"></canvas>
                 </div>
 
                 <div class="chart-container">
-                    <h3>Distraction Sources</h3>
-                    <p style="color: #6e6e73; margin-bottom: 24px;">What broke your flow today?</p>
+                    <h3 id="distraction-title">Distraction Sources</h3>
+                    <p style="color: #6e6e73; margin-bottom: 24px;" id="distraction-desc">What broke your flow today?</p>
                     <div id="distraction-chart"></div>
                 </div>
 
@@ -874,8 +902,8 @@
                     <div style="display: flex; align-items: center; gap: 16px;">
                         <div style="font-size: 48px;">🧠</div>
                         <div>
-                            <h3>AI Insight: Peak Performance</h3>
-                            <p style="margin-top: 8px;">Abdullah, your focus consistently peaks between <strong id="peak-insight-time">10:00 AM and 11:30 AM</strong>. We recommend scheduling your most challenging subjects (like Math) during this window for maximum retention.</p>
+                            <h3 id="ai-insight-title">AI Insight: Peak Performance</h3>
+                            <p style="margin-top: 8px;" id="ai-insight-desc">Friend, your focus consistently peaks between <strong id="peak-insight-time">10:00 AM and 11:30 AM</strong>. We recommend scheduling your most challenging subjects (like Math) during this window for maximum retention.</p>
                         </div>
                     </div>
                 </div>
@@ -884,33 +912,32 @@
             <!-- Settings View -->
             <div id="settings-view" class="view hidden">
                 <div class="header">
-                    <h1>Settings & Preferences</h1>
-                    <p>Customize your FocusFlow experience to match your needs.</p>
+                    <h1 id="settings-title">Settings & Preferences</h1>
+                    <p id="settings-desc">Customize your FocusFlow experience to match your needs.</p>
                 </div>
 
                 <div class="settings-layout">
                     <div class="settings-nav">
-                        <div class="settings-nav-item active" onclick="showSettingsSection('accessibility')">
+                        <div class="settings-nav-item active" id="accessibility-id" onclick="showSettingsSection('accessibility')">
                             ♿ Accessibility
                         </div>
-                        <div class="settings-nav-item" onclick="showSettingsSection('buddy')">
+                        <div class="settings-nav-item" id="focusbuddy-id" onclick="showSettingsSection('buddy')">
                             🤖 Focus Buddy
                         </div>
-                        <div class="settings-nav-item" onclick="showSettingsSection('privacy')">
+                        <div class="settings-nav-item" id="privacy-id" onclick="showSettingsSection('privacy')">
                             🔒 Privacy
                         </div>
                     </div>
 
                     <div class="settings-section" id="settings-content">
-                        <!-- Accessibility Settings -->
                         <div id="accessibility-settings">
-                            <div class="settings-group">
+                            <div class="settings-group" id="a&s-id">
                                 <h3>♿ Accessibility & Sensory</h3>
                                 <p>Adjust the interface for your comfort.</p>
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Dyslexia Friendly Font</strong>
+                                        <strong id="dyslexia-label">Dyslexia Friendly Font</strong>
                                         <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
                                             Switches text to OpenDyslexic or similar accessible font.
                                         </p>
@@ -920,7 +947,7 @@
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Reduced Motion</strong>
+                                        <strong id="reduced-motion-label">Reduced Motion</strong>
                                         <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
                                             Minimizes animations and transitions.
                                         </p>
@@ -930,7 +957,7 @@
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Color Contrast</strong>
+                                        <strong id="contrast-label">Color Contrast</strong>
                                         <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
                                             Adjust contrast level
                                         </p>
@@ -943,13 +970,13 @@
                                 </div>
                             </div>
 
-                            <div class="settings-group">
+                            <div class="settings-group" id="fb-id">
                                 <h3>🤖 Focus Companion</h3>
                                 <p>Configure how your AI buddy interacts with you.</p>
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Buddy Persona</strong>
+                                        <strong id="persona-label">Buddy Persona</strong>
                                     </div>
                                     <select id="persona-select" onchange="updateSetting('buddy_persona', this.value)">
                                         <option value="Friendly Peer">Friendly Peer (Default)</option>
@@ -960,7 +987,7 @@
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Primary Language</strong>
+                                        <strong id="language-label">Primary Language</strong>
                                     </div>
                                     <select id="language-select" onchange="updateSetting('language', this.value)">
                                         <option value="English">English</option>
@@ -971,7 +998,7 @@
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Proactive Interventions</strong>
+                                        <strong id="intervention-label">Proactive Interventions</strong>
                                         <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
                                             Allow Buddy to speak when you lose focus.
                                         </p>
@@ -980,7 +1007,7 @@
                                 </div>
                             </div>
 
-                            <div class="settings-group">
+                            <div class="settings-group" id="ph-id">
                                 <h3>🔒 Privacy & Hardware</h3>
                                 <p>Manage permissions and data processing.</p>
 
@@ -988,8 +1015,8 @@
                                     <div style="display: flex; align-items: center; gap: 12px;">
                                         <span style="font-size: 24px;">🔒</span>
                                         <div>
-                                            <strong style="color: #5ec4a9;">Local Edge Processing Active</strong>
-                                            <p style="font-size: 12px; margin-top: 4px; color: #6e6e73;">
+                                            <strong style="color: #5ec4a9;" id="local-processing-title">Local Edge Processing Active</strong>
+                                            <p style="font-size: 12px; margin-top: 4px; color: #6e6e73;" id="local-processing-desc">
                                                 Your camera feed is processed on-device and never sent to the cloud.
                                             </p>
                                         </div>
@@ -998,7 +1025,7 @@
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Camera Access</strong>
+                                        <strong id="camera-label">Camera Access</strong>
                                         <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
                                             Required for gaze tracking.
                                         </p>
@@ -1008,7 +1035,7 @@
 
                                 <div class="setting-item">
                                     <div>
-                                        <strong>Microphone Access</strong>
+                                        <strong id="mic-label">Microphone Access</strong>
                                         <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
                                             Required for voice commands.
                                         </p>
@@ -1024,82 +1051,344 @@
     </div>
 
     <script>
+        // Translation Dictionary
+        const translations = {
+            English: {
+                greetingPrefix: "Good",
+                readyText: "Ready to conquer your tasks today?",
+                privacyBadge: "Privacy Mode: Local Processing Only",
+                currentFocusLabel: "CURRENT FOCUS",
+                webcamInactive: "Webcam inactive",
+                webcamActive: "Webcam active",
+                focusBuddyTitle: "Focus Buddy",
+                buddyHelpText: "ALWAYS HERE TO HELP",
+                currentLangBadge: "English",
+                dopamineMenuTitle: "Dopamine Menu",
+                tasksTitle: "Tasks",
+                chunkingBadge: "Chunking Active",
+                addTaskBtn: "+ Add Task",
+                activityInsightsTitle: "Activity Insights",
+                activityInsightsDesc: "You're making great progress! Keep the momentum going.",
+                scheduleTitle: "Your Bio-Rhythm Schedule",
+                scheduleDesc: "Optimized for your peak focus hours",
+                timelineTitle: "Timeline",
+                bioRhythmTitle: "BIO-RHYTHM INSIGHT",
+                peakFocusTitle: "Peak Focus Time",
+                addScheduleBtn: "+ Add Task to Schedule",
+                dailyStatsTitle: "DAILY STATS",
+                scheduledLabel: "Scheduled",
+                breaksLabel: "Breaks",
+                analyticsTitle: "Weekly Insights",
+                analyticsDesc: "Understanding your focus patterns to optimize your study routine.",
+                deepFocusLabel: "Deep Focus Score",
+                totalFocusLabel: "Total Focus Time",
+                consistencyLabel: "Consistency",
+                distractionsLabel: "Distractions",
+                focusRhythmTitle: "Focus Rhythm",
+                focusRhythmDesc: "Your attention levels throughout the day",
+                distractionTitle: "Distraction Sources",
+                distractionDesc: "What broke your flow today?",
+                aiInsightTitle: "AI Insight: Peak Performance",
+                aiInsightDesc: "Friend, your focus consistently peaks between <strong>10:00 AM and 11:30 AM</strong>. We recommend scheduling your most challenging subjects (like Math) during this window for maximum retention.",
+                settingsTitle: "Settings & Preferences",
+                settingsDesc: "Customize your FocusFlow experience to match your needs.",
+                dyslexiaLabel: "Dyslexia Friendly Font",
+                reducedMotionLabel: "Reduced Motion",
+                contrastLabel: "Color Contrast",
+                personaLabel: "Buddy Persona",
+                languageLabel: "Primary Language",
+                interventionLabel: "Proactive Interventions",
+                localProcessingTitle: "Local Edge Processing Active",
+                localProcessingDesc: "Your camera feed is processed on-device and never sent to the cloud.",
+                cameraLabel: "Camera Access",
+                micLabel: "Microphone Access",
+                navDashboard: "Dashboard",
+                navSchedule: "Schedule",
+                navAnalytics: "Analytics",
+                navSettings: "Settings",
+                accessibilitytitle: "Accessibility",
+                focusbuddytitle:"Focus Buddy",
+                privacytitle:"Privacy"
+
+            },
+            Urdu: {
+                greetingPrefix: "اچھا",
+                readyText: "کیا آپ آج اپنے کام مکمل کرنے کے لیے تیار ہیں؟",
+                privacyBadge: "پرائیویسی موڈ: صرف لوکل پروسیسنگ",
+                currentFocusLabel: "موجودہ توجہ",
+                webcamInactive: "ویب کیم غیر فعال",
+                webcamActive: "ویب کیم فعال",
+                focusBuddyTitle: "فوکس بڈی",
+                buddyHelpText: "ہمیشہ مدد کے لیے موجود",
+                currentLangBadge: "اردو",
+                dopamineMenuTitle: "ڈوپامین مینو",
+                tasksTitle: "کام",
+                chunkingBadge: "ٹاسک تقسیم فعال",
+                addTaskBtn: "+ نیا کام شامل کریں",
+                activityInsightsTitle: "سرگرمی کی بصیرت",
+                activityInsightsDesc: "آپ زبردست ترقی کر رہے ہیں! رفتار برقرار رکھیں۔",
+                scheduleTitle: "آپ کا بائیو ردم شیڈول",
+                scheduleDesc: "آپ کے پیک فوکس اوقات کے لیے بہتر بنایا گیا",
+                timelineTitle: "ٹائم لائن",
+                bioRhythmTitle: "بائیو ردم بصیرت",
+                peakFocusTitle: "پیک فوکس وقت",
+                addScheduleBtn: "+ شیڈول میں کام شامل کریں",
+                dailyStatsTitle: "روزانہ کے اعداد و شمار",
+                scheduledLabel: "شیڈول شدہ",
+                breaksLabel: "وقفے",
+                analyticsTitle: "ہفتہ وار بصیرت",
+                analyticsDesc: "اپنے توجہ کے نمونوں کو سمجھ کر مطالعہ کا معمول بہتر بنائیں۔",
+                deepFocusLabel: "گہری توجہ کا سکور",
+                totalFocusLabel: "کل توجہ کا وقت",
+                consistencyLabel: "مستقل مزاجی",
+                distractionsLabel: "خلفشار",
+                focusRhythmTitle: "توجہ کا ردم",
+                focusRhythmDesc: "دن بھر میں آپ کی توجہ کی سطح",
+                distractionTitle: "خلفشار کے ذرائع",
+                distractionDesc: "آج کس چیز نے آپ کا بہاؤ توڑا؟",
+                aiInsightTitle: "اے آئی بصیرت: پیک کارکردگی",
+                aiInsightDesc: "دوست، آپ کی توجہ مستقل طور پر <strong>صبح 10:00 سے 11:30</strong> کے درمیان عروج پر ہوتی ہے۔ ہم تجویز کرتے ہیں کہ مشکل مضامین (جیسے ریاضی) اس وقت شیڈول کریں۔",
+                settingsTitle: "ترتیبات اور ترجیحات",
+                settingsDesc: "اپنے FocusFlow تجربے کو اپنی ضروریات کے مطابق بنائیں۔",
+                dyslexiaLabel: "ڈسلیکسک کے لیے موزوں فونٹ",
+                reducedMotionLabel: "حرکات کم کریں",
+                contrastLabel: "رنگ کا تضاد",
+                personaLabel: "بڈی شخصیت",
+                languageLabel: "بنیادی زبان",
+                interventionLabel: "فعال مداخلت",
+                localProcessingTitle: "لوکل ایج پروسیسنگ فعال",
+                localProcessingDesc: "آپ کا کیمرہ فیڈ ڈیوائس پر پروسیس ہوتا ہے اور کلاؤڈ پر نہیں بھیجا جاتا۔",
+                cameraLabel: "کیمرہ رسائی",
+                micLabel: "مائیکروفون رسائی",
+                navDashboard: "ڈیش بورڈ",
+                navSchedule: "شیڈول",
+                navAnalytics: "تجزیات",
+                navSettings: "ترتیبات",
+                accessibilitytitle: "رسائی",
+                focusbuddytitle:"توجہ کا ساتھی",
+                privacytitle:"رازداری"
+            }
+        };
+
         // State management
         let appState = {
             currentView: 'dashboard',
             cameraActive: false,
             microphoneActive: false,
-            focusScore: 82,
+            focusScore: 0,
             tasks: [],
             schedule: [],
             analytics: {},
-            settings: {}
+            focusHistory: [],
+            settings: {
+                language: 'English',
+                proactive_interventions: true,
+                dyslexia_font: false,
+                reduced_motion: false,
+                color_contrast: 'Standard',
+                buddy_persona: 'Friendly Peer'
+            },
+            audioInitialized: false
         };
+
+        let currentScheduleDate = new Date();
+
+        // Apply Language
+        function applyLanguage() {
+            const lang = appState.settings.language;
+            const t = translations[lang];
+
+            document.body.dir = lang === 'Urdu' ? 'rtl' : 'ltr';
+            document.documentElement.lang = lang === 'Urdu' ? 'ur' : 'en';
+
+            // Greeting
+            const hour = new Date().getHours();
+            let timeOfDay = 'Morning';
+            if (hour >= 12 && hour < 17) timeOfDay = 'Afternoon';
+            if (hour >= 17) timeOfDay = 'Evening';
+            document.getElementById('greeting').textContent = timeOfDay;
+            document.getElementById('greeting-prefix').innerHTML = `${t.greetingPrefix} <span id="greeting">${timeOfDay}</span>, Friend`;
+
+            // Safe text update function
+            const setText = (id, text) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = text;
+            };
+            const setHTML = (id, html) => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = html;
+            };
+
+            setText('ready-text', t.readyText);
+            setText('privacy-badge', `🔒 ${t.privacyBadge}`);
+            setText('current-focus-label', t.currentFocusLabel);
+            setText('webcam-status', appState.cameraActive ? t.webcamActive : t.webcamInactive);
+            setText('focus-buddy-title', t.focusBuddyTitle);
+            setText('buddy-help-text', t.buddyHelpText);
+            setText('current-lang-badge', t.currentLangBadge);
+            setText('dopamine-menu-title', t.dopamineMenuTitle);
+            setText('tasks-title', t.tasksTitle);
+            setText('chunking-badge', t.chunkingBadge);
+            setText('add-task-btn', t.addTaskBtn);
+            setText('activity-insights-title', t.activityInsightsTitle);
+            setText('activity-insights-desc', t.activityInsightsDesc);
+            setText('schedule-title', t.scheduleTitle);
+            setHTML('schedule-desc', `${t.scheduleDesc} (<span id="peak-hours"></span>)`);
+            setText('timeline-title', t.timelineTitle);
+            setText('bio-rhythm-title', t.bioRhythmTitle);
+            setText('peak-focus-title', t.peakFocusTitle);
+            setText('add-schedule-btn', t.addScheduleBtn);
+            setText('daily-stats-title', t.dailyStatsTitle);
+            setText('scheduled-label', t.scheduledLabel);
+            setText('breaks-label', t.breaksLabel);
+            setText('analytics-title', t.analyticsTitle);
+            setText('analytics-desc', t.analyticsDesc);
+            setText('deep-focus-label', t.deepFocusLabel);
+            setText('total-focus-label', t.totalFocusLabel);
+            setText('consistency-label', t.consistencyLabel);
+            setText('distractions-label', t.distractionsLabel);
+            setText('focus-rhythm-title', t.focusRhythmTitle);
+            setText('focus-rhythm-desc', t.focusRhythmDesc);
+            setText('distraction-title', t.distractionTitle);
+            setText('distraction-desc', t.distractionDesc);
+            setText('ai-insight-title', t.aiInsightTitle);
+            setHTML('ai-insight-desc', t.aiInsightDesc);
+            setText('settings-title', t.settingsTitle);
+            setText('settings-desc', t.settingsDesc);
+            setText('dyslexia-label', t.dyslexiaLabel);
+            setText('reduced-motion-label', t.reducedMotionLabel);
+            setText('contrast-label', t.contrastLabel);
+            setText('persona-label', t.personaLabel);
+            setText('language-label', t.languageLabel);
+            setText('intervention-label', t.interventionLabel);
+            setText('local-processing-title', t.localProcessingTitle);
+            setText('local-processing-desc', t.localProcessingDesc);
+            setText('camera-label', t.cameraLabel);
+            setText('mic-label', t.micLabel);
+            setText('accessibility-id', t.accessibilitytitle);
+            setText('focusbuddy-id', t.focusbuddytitle);
+            setText('privacy-id', t.privacytitle);
+
+            // Sidebar
+            setText('nav-dashboard', `🏠 ${t.navDashboard}`);
+            setText('nav-schedule', `📅 ${t.navSchedule}`);
+            setText('nav-analytics', `📊 ${t.navAnalytics}`);
+            setText('nav-settings', `⚙️ ${t.navSettings}`);
+        }
 
         // Initialize app
         async function init() {
             updateGreeting();
             await loadState();
             renderTasks();
-            setInterval(updateState, 2000); // Update every 2 seconds
-            setInterval(checkBuddyMessages, 3000); // Check for buddy messages
+            applyLanguage(); // Initial apply
+
+            document.body.addEventListener('click', () => {
+                if (!appState.audioInitialized) {
+                    const prime = new SpeechSynthesisUtterance("");
+                    window.speechSynthesis.speak(prime);
+                    appState.audioInitialized = true;
+                    console.log("Audio Engine Unlocked");
+                }
+            }, { once: true });
+
+            setInterval(updateState, 300);
+            setInterval(checkBuddyMessages, 3000);
         }
 
         function updateGreeting() {
-            const hour = new Date().getHours();
-            let greeting = 'Morning';
-            if (hour >= 12 && hour < 17) greeting = 'Afternoon';
-            else if (hour >= 17) greeting = 'Evening';
-            document.getElementById('greeting').textContent = greeting;
+            // Called inside applyLanguage now
         }
 
         async function loadState() {
             try {
                 const response = await fetch('/api/state');
                 const data = await response.json();
-                appState = {...appState, ...data};
+
+                appState = {
+                    ...appState,
+                    focusScore: data.focus_score || 0,
+                    cameraActive: data.camera_active || false,
+                    microphoneActive: data.microphone_active || false,
+                    tasks: data.tasks || [],
+                    analytics: data.analytics || {},
+                    settings: { ...appState.settings, ...data.settings }
+                };
+
                 updateUI();
+                updateFocusDisplay();
+                applySettings();
+                applyLanguage();
             } catch (error) {
                 console.error('Error loading state:', error);
+                applyLanguage(); // Still apply default
             }
         }
 
         async function updateState() {
             await loadState();
             updateFocusDisplay();
+            updateUI();
         }
 
         function updateFocusDisplay() {
             const focusPercentage = document.getElementById('focus-percentage');
             const focusBar = document.getElementById('focus-bar');
-            
             if (focusPercentage && focusBar) {
                 focusPercentage.textContent = appState.focusScore + '%';
                 focusBar.style.width = appState.focusScore + '%';
+                appState.focusHistory.push(appState.focusScore);
+                if (appState.focusHistory.length > 20) appState.focusHistory.shift();
             }
         }
 
         function updateUI() {
-            document.getElementById('focus-percentage').textContent = appState.focusScore + '%';
-            document.getElementById('focus-bar').style.width = appState.focusScore + '%';
-            
             if (appState.cameraActive) {
-                document.getElementById('webcam-status').textContent = 'Webcam active';
+                document.getElementById('webcam-status').textContent = translations[appState.settings.language].webcamActive;
                 document.getElementById('video-container').classList.remove('hidden');
             } else {
-                document.getElementById('webcam-status').textContent = 'Webcam inactive';
+                document.getElementById('webcam-status').textContent = translations[appState.settings.language].webcamInactive;
                 document.getElementById('video-container').classList.add('hidden');
             }
-            
+
             const micButton = document.getElementById('mic-toggle');
             if (appState.microphoneActive) {
                 micButton.classList.add('active');
             } else {
                 micButton.classList.remove('active');
             }
+
+            if (appState.analytics) {
+                const deepFocusEl = document.getElementById('deep-focus-score');
+                const totalTimeEl = document.getElementById('total-focus-time');
+                const consistencyEl = document.getElementById('consistency');
+                const distractionsEl = document.getElementById('distractions');
+
+                if (deepFocusEl) deepFocusEl.textContent = (appState.analytics.deep_focus_score || 78) + '%';
+                if (totalTimeEl) totalTimeEl.textContent = appState.analytics.total_focus_time || "4h 12m";
+                if (consistencyEl) consistencyEl.textContent = (appState.analytics.consistency || 85) + '%';
+                if (distractionsEl) distractionsEl.textContent = appState.analytics.distractions || 12;
+
+                if (appState.currentView === 'analytics') {
+                    renderDistractionChart();
+                    renderFocusChart();
+                }
+            }
         }
 
-        // View management
+        function speakMessage(text) {
+            if (!appState.settings.proactive_interventions || !appState.audioInitialized) return;
+            window.speechSynthesis.cancel();
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                const langMap = { 'English': 'en-US', 'Urdu': 'ur-PK', 'Mixed': 'en-US' };
+                utterance.lang = langMap[appState.settings.language] || 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
         function showView(viewName) {
             const views = ['dashboard', 'schedule', 'analytics', 'settings'];
             views.forEach(view => {
@@ -1109,19 +1398,16 @@
                 }
             });
 
-            // Update nav
             document.querySelectorAll('.nav-item').forEach((item, index) => {
                 item.classList.toggle('active', views[index] === viewName);
             });
 
             appState.currentView = viewName;
 
-            // Load view-specific data
             if (viewName === 'schedule') loadSchedule();
             if (viewName === 'analytics') loadAnalytics();
         }
 
-        // Camera control
         async function toggleCamera() {
             try {
                 const response = await fetch('/api/toggle_camera', { method: 'POST' });
@@ -1133,7 +1419,6 @@
             }
         }
 
-        // Microphone control
         async function toggleMicrophone() {
             try {
                 const response = await fetch('/api/toggle_microphone', { method: 'POST' });
@@ -1145,15 +1430,14 @@
             }
         }
 
-        // Buddy messages
         async function checkBuddyMessages() {
             try {
                 const response = await fetch('/api/buddy_messages');
                 const messages = await response.json();
-                
                 if (messages.length > 0) {
-                    const buddyMessage = document.getElementById('buddy-message');
-                    buddyMessage.textContent = messages[messages.length - 1];
+                    const latestMsg = messages[messages.length - 1];
+                    document.getElementById('buddy-message').textContent = latestMsg;
+                    speakMessage(latestMsg);
                 }
             } catch (error) {
                 console.error('Error checking buddy messages:', error);
@@ -1169,27 +1453,19 @@
         function sendMessage() {
             const input = document.getElementById('chat-input');
             const message = input.value.trim();
-            
             if (message) {
-                // Display user message
-                const buddyMessage = document.getElementById('buddy-message');
-                buddyMessage.textContent = 'You: ' + message;
+                document.getElementById('buddy-message').textContent = 'You: ' + message;
                 input.value = '';
-                
-                // Simulate response
                 setTimeout(() => {
-                    buddyMessage.textContent = "I'm here to help! Let's stay focused together.";
+                    document.getElementById('buddy-message').textContent = "I'm here to help! Let's stay focused together.";
                 }, 1000);
             }
         }
 
-        // Tasks management
         function renderTasks() {
             const container = document.getElementById('tasks-container');
             if (!container) return;
-            
             container.innerHTML = '';
-            
             appState.tasks.forEach(task => {
                 const taskHTML = `
                     <div class="task-group">
@@ -1221,64 +1497,85 @@
         async function toggleSubtask(taskId, subtaskId) {
             const task = appState.tasks.find(t => t.id === taskId);
             if (!task) return;
-            
             const subtask = task.subtasks.find(st => st.id === subtaskId);
             if (!subtask) return;
-            
             subtask.completed = !subtask.completed;
             task.completed = task.subtasks.filter(st => st.completed).length;
-            
             renderTasks();
-            
-            // Play success sound or show animation
             if (subtask.completed) {
                 const buddyMessage = document.getElementById('buddy-message');
-                buddyMessage.textContent = "Great job completing that task! Keep up the momentum! 🎉";
+                buddyMessage.textContent = "Congratulations! Great job completing that subtask! 🎉";
+                if (task.completed === task.total) {
+                    buddyMessage.textContent += " You've completed the entire task!";
+                }
             }
+            await fetch('/api/toggle_subtask', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ task_id: taskId, subtask_id: subtaskId })
+            });
         }
 
-        function addTask() {
+        async function addTask() {
             const title = prompt('Enter task title:');
             if (title) {
-                const newTask = {
-                    id: appState.tasks.length + 1,
-                    title: title,
-                    subtasks: [
-                        { id: 1, text: 'Subtask 1', completed: false, duration: 15 }
-                    ],
-                    completed: 0,
-                    total: 1
-                };
+                const response = await fetch('/api/add_task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title })
+                });
+                const newTask = await response.json();
                 appState.tasks.push(newTask);
                 renderTasks();
             }
         }
 
-        // Schedule
         async function loadSchedule() {
             try {
-                const response = await fetch('/api/schedule');
-                const schedule = await response.json();
-                appState.schedule = schedule;
+                const dateStr = currentScheduleDate.toISOString().split('T')[0];
+                const response = await fetch(`/api/schedule?date=${dateStr}`);
+                const data = await response.json();
+                appState.schedule = data.schedule;
+                appState.bio_rhythm = data.bio_rhythm;
                 renderSchedule();
-                
-                // Update bio-rhythm display
-                const bioRhythm = appState.bio_rhythm;
-                document.getElementById('peak-hours').textContent = 
-                    `${bioRhythm.peak_start} - ${bioRhythm.peak_end}`;
-                document.getElementById('peak-time-display').textContent = 
-                    `${bioRhythm.peak_start} - ${bioRhythm.peak_end}`;
+
+                const today = new Date();
+                const isToday = currentScheduleDate.toDateString() === today.toDateString();
+                const formatted = currentScheduleDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                document.getElementById('current-date').textContent = isToday ? `Today, ${formatted}` : formatted;
+
+                const peakStr = `${data.bio_rhythm.peak_start} - ${data.bio_rhythm.peak_end}`;
+                document.getElementById('peak-hours').textContent = peakStr;
+                document.getElementById('peak-time-display').textContent = peakStr;
+
+                const hour = parseInt(data.bio_rhythm.peak_start.split(':')[0]);
+                const period = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+                document.getElementById('bio-insight').textContent = 
+                    `Based on your recent activity, you seem most alert in the ${period}. We've scheduled your hardest tasks during this window for optimal performance.`;
+
+                if (data.daily_stats) {
+                    document.getElementById('scheduled-time').textContent = data.daily_stats.scheduled;
+                    document.getElementById('breaks-time').textContent = data.daily_stats.breaks;
+                }
             } catch (error) {
                 console.error('Error loading schedule:', error);
             }
         }
 
+        function prevDay() {
+            currentScheduleDate.setDate(currentScheduleDate.getDate() - 1);
+            loadSchedule();
+        }
+
+        function nextDay() {
+            currentScheduleDate.setDate(currentScheduleDate.getDate() + 1);
+            loadSchedule();
+        }
+
         function renderSchedule() {
             const timeline = document.getElementById('schedule-timeline');
             if (!timeline) return;
-            
             timeline.innerHTML = '';
-            
             appState.schedule.forEach(item => {
                 const energyClass = `energy-${item.energy.toLowerCase()}`;
                 const itemHTML = `
@@ -1308,7 +1605,6 @@
             }
         }
 
-        // Analytics
         async function loadAnalytics() {
             try {
                 const response = await fetch('/api/analytics');
@@ -1321,27 +1617,64 @@
         }
 
         function renderAnalytics() {
-            // Update stats
-            document.getElementById('deep-focus-score').textContent = 
-                appState.analytics.deep_focus_score + '%';
-            document.getElementById('total-focus-time').textContent = 
-                appState.analytics.total_focus_time;
-            document.getElementById('consistency').textContent = 
-                appState.analytics.consistency + '%';
-            document.getElementById('distractions').textContent = 
-                appState.analytics.distractions;
-            
-            // Render distraction chart
+            document.getElementById('deep-focus-score').textContent = appState.analytics.deep_focus_score + '%';
+            document.getElementById('total-focus-time').textContent = appState.analytics.total_focus_time;
+            document.getElementById('consistency').textContent = appState.analytics.consistency + '%';
+            document.getElementById('distractions').textContent = appState.analytics.distractions;
+
+            if (appState.analytics.peak_insight_time) {
+                document.getElementById('peak-insight-time').textContent = appState.analytics.peak_insight_time;
+            }
+
+            renderFocusChart();
             renderDistractionChart();
+        }
+
+        function renderFocusChart() {
+            const ctx = document.getElementById('focus-chart');
+            if (!ctx) return;
+
+            if (window.focusChart) {
+                window.focusChart.destroy();
+            }
+
+            window.focusChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: appState.focusHistory.length}, (_, i) => `T${i+1}`),
+                    datasets: [{
+                        label: 'Focus Score',
+                        data: appState.focusHistory,
+                        borderColor: '#5ec4a9',
+                        backgroundColor: 'rgba(94, 196, 169, 0.2)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
         }
 
         function renderDistractionChart() {
             const container = document.getElementById('distraction-chart');
             if (!container) return;
-            
+
             const sources = appState.analytics.distraction_sources || {};
             const total = Object.values(sources).reduce((a, b) => a + b, 0);
-            
             container.innerHTML = '';
             Object.entries(sources).forEach(([source, count]) => {
                 const percentage = Math.round((count / total) * 100);
@@ -1351,7 +1684,6 @@
                     'Daydream': '#8b5cf6',
                     'Fidgeting': '#10b981'
                 };
-                
                 const barHTML = `
                     <div style="margin-bottom: 16px;">
                         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
@@ -1367,9 +1699,7 @@
             });
         }
 
-        // Settings
         function showSettingsSection(section) {
-            // Update nav
             document.querySelectorAll('.settings-nav-item').forEach(item => {
                 item.classList.remove('active');
             });
@@ -1378,12 +1708,9 @@
 
         async function toggleSetting(settingName) {
             appState.settings[settingName] = !appState.settings[settingName];
-            
-            // Update toggle visual
             const toggle = event.target;
             toggle.classList.toggle('active');
-            
-            // Save to backend
+
             try {
                 await fetch('/api/settings', {
                     method: 'POST',
@@ -1393,11 +1720,12 @@
             } catch (error) {
                 console.error('Error saving settings:', error);
             }
+            applySettings();
         }
 
         async function updateSetting(settingName, value) {
             appState.settings[settingName] = value;
-            
+
             try {
                 await fetch('/api/settings', {
                     method: 'POST',
@@ -1405,11 +1733,36 @@
                     body: JSON.stringify(appState.settings)
                 });
             } catch (error) {
-                console.error('Error saving settings:', error);
+                console.error('Save error:', error);
+            }
+
+            applySettings();
+            if (settingName === 'language') {
+                applyLanguage();
             }
         }
 
-        // Dopamine menu
+        function applySettings() {
+            document.body.classList.toggle('dyslexia-font', appState.settings.dyslexia_font);
+            document.body.classList.toggle('reduced-motion', appState.settings.reduced_motion);
+
+            document.body.classList.remove('high-contrast', 'maximum-contrast');
+            if (appState.settings.color_contrast === 'High') {
+                document.body.classList.add('high-contrast');
+            } else if (appState.settings.color_contrast === 'Maximum') {
+                document.body.classList.add('maximum-contrast');
+            }
+
+            document.getElementById('dyslexia-toggle').classList.toggle('active', appState.settings.dyslexia_font);
+            document.getElementById('motion-toggle').classList.toggle('active', appState.settings.reduced_motion);
+            document.getElementById('intervention-toggle').classList.toggle('active', appState.settings.proactive_interventions);
+            document.getElementById('contrast-select').value = appState.settings.color_contrast || 'Standard';
+            document.getElementById('persona-select').value = appState.settings.buddy_persona || 'Friendly Peer';
+            document.getElementById('language-select').value = appState.settings.language || 'English';
+
+            applyLanguage();
+        }
+
         function triggerBreak(activity) {
             const messages = {
                 'jumping-jacks': "Great choice! Do 5 jumping jacks and come back energized! 🤸",
@@ -1417,11 +1770,12 @@
                 'pet': "Aww, go give your cat some love! See you in a minute! 🐱",
                 'stretch': "Good idea! Stretch those muscles. Your body will thank you! 🧘"
             };
-            
-            document.getElementById('buddy-message').textContent = messages[activity];
+
+            const message = messages[activity] || "Nice! Taking a quick break is smart. See you soon!";
+            document.getElementById('buddy-message').textContent = message;
+            speakMessage(message);
         }
 
-        // Initialize on load
         window.onload = init;
     </script>
 </body>
