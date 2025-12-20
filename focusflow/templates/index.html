@@ -661,10 +661,99 @@
             display: none;
         }
 
+        .mic-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Settings feedback banner */
+        #settings-feedback {
+            margin: 12px 0 0 0;
+            padding: 10px 14px;
+            border-radius: 10px;
+            display: inline-block;
+            font-size: 14px;
+            box-shadow: 0 4px 16px rgba(2,6,23,0.08);
+            transition: transform 180ms ease, opacity 180ms ease;
+            opacity: 0.0;
+            transform: translateY(-6px);
+        }
+        #settings-feedback.visible { opacity: 1.0; transform: translateY(0); }
+        #settings-feedback.success { background: #e6ffed; color: #065f46; }
+        #settings-feedback.warning { background: #fff4e5; color: #7a4a00; }
+
         /* Dynamic Settings Styles */
         body.dyslexia-font {
-            font-family: 'OpenDyslexic', sans-serif !important;
+            font-family: 'OpenDyslexic', 'Dyslexie', Arial, Helvetica, sans-serif !important;
+            /* Make dyslexic mode more visually distinct even if the font file isn't available */
+            font-weight: 600 !important;
+            letter-spacing: 0.4px !important;
+            word-spacing: 1px !important;
+            line-height: 1.6 !important;
+            font-size: 1.02em !important;
+            text-rendering: optimizeLegibility !important;
         }
+
+        /* Dark mode */
+        body.dark-mode {
+            background: #0b1220;
+            color: #e6eef6;
+        }
+        body.dark-mode .card,
+        body.dark-mode .settings-section,
+        body.dark-mode .settings-nav,
+        body.dark-mode .chart-container,
+        body.dark-mode .activity-insights,
+        body.dark-mode .dopamine-menu,
+        body.dark-mode .focus-buddy,
+        body.dark-mode .tasks-header,
+        body.dark-mode .task-group {
+            background: #0f1724;
+            box-shadow: none;
+            color: #e6eef6;
+        }
+        body.dark-mode .sidebar {
+            background: #071029;
+            color: #cfe6ff;
+        }
+        body.dark-mode .main-content { background: transparent; }
+        body.dark-mode .nav-item { color: #bcd7ef; }
+        body.dark-mode .nav-item.active { background: transparent; color: #9fe3c9; }
+        body.dark-mode .privacy-badge { background: rgba(94,196,169,0.08); color: #9fe3c9; }
+        body.dark-mode .mic-button { background: #154046; color: #d1f7ef; }
+        body.dark-mode .mic-button.active { background: #b91c1c; }
+        body.dark-mode .add-task-btn { color: #9fe3c9; }
+        body.dark-mode .toggle-switch { background: #25303a; }
+        body.dark-mode .toggle-switch::after { background: #f3f7f9; }
+        body.dark-mode input, body.dark-mode select, body.dark-mode textarea { background: #071226; color: #e6eef6; border: 1px solid #21303f; }
+        body.dark-mode .progress-bar { background: #071226; }
+        body.dark-mode .progress-fill { background: linear-gradient(90deg,#2dd4bf,#7dd3fc); }
+        body.dark-mode .dopamine-item { background: #071f2b; border: 1px solid #12323f; color: #d1f7ff; }
+        body.dark-mode .subtask { background: #071226; color: #dbeef6; }
+        body.dark-mode .chat-input input { background: #071226; color: #e6eef6; border-color: #21303f; }
+
+        /* Color-blind friendly adjustments (high contrast but colorblind palette) */
+        body.color-blind .dopamine-item { background: #e0f2ff; border-color: #0077b6; }
+        body.color-blind .progress-fill { background: #0077b6; }
+
+        /* Hide sidebar */
+        .sidebar.hidden { width: 0; padding: 0; overflow: hidden; display: none; }
+
+        /* Toolbar dark toggle */
+        .toolbar-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid rgba(0,0,0,0.06);
+            cursor: pointer;
+            color: inherit;
+            margin-left: 12px;
+        }
+        .toolbar-button.active { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
 
         body.reduced-motion * {
             animation: none !important;
@@ -715,6 +804,7 @@
                     <div class="privacy-badge" id="privacy-badge">
                         🔒 Privacy Mode: Local Processing Only
                     </div>
+                    <!-- camera-notice removed; feedback displayed in Settings page -->
                 </div>
 
                 <div class="dashboard-grid">
@@ -756,7 +846,7 @@
                             </div>
 
                             <div class="chat-input">
-                                <button class="mic-button" id="mic-toggle" onclick="toggleMicrophone()">🎤</button>
+                                <button class="mic-button" id="mic-toggle" onclick="startVoiceCapture()">🎤</button>
                                 <input type="text" placeholder="Type or speak to Buddy..." id="chat-input" onkeypress="handleChatInput(event)">
                                 <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()">➤</button>
                             </div>
@@ -930,6 +1020,7 @@
                     </div>
 
                     <div class="settings-section" id="settings-content">
+                        <div id="settings-feedback" class="hidden" role="status" aria-live="polite"></div>
                         <div id="accessibility-settings">
                             <div class="settings-group" id="a&s-id">
                                 <h3>♿ Accessibility & Sensory</h3>
@@ -942,18 +1033,34 @@
                                             Switches text to OpenDyslexic or similar accessible font.
                                         </p>
                                     </div>
-                                    <div class="toggle-switch" id="dyslexia-toggle" onclick="toggleSetting('dyslexia_font')"></div>
-                                </div>
+                                            <div class="toggle-switch" id="dyslexia-toggle" onclick="toggleSetting('dyslexia_font')"></div>
+                                        </div>
 
-                                <div class="setting-item">
-                                    <div>
-                                        <strong id="reduced-motion-label">Reduced Motion</strong>
-                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
-                                            Minimizes animations and transitions.
-                                        </p>
-                                    </div>
-                                    <div class="toggle-switch" id="motion-toggle" onclick="toggleSetting('reduced_motion')"></div>
-                                </div>
+                                        <div class="setting-item">
+                                            <div>
+                                                <strong id="darkmode-label">Dark Mode</strong>
+                                                <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">Switch to a dark theme to reduce glare.</p>
+                                            </div>
+                                            <div class="toggle-switch" id="darkmode-toggle" onclick="toggleSetting('dark_mode')"></div>
+                                        </div>
+
+                                        <div class="setting-item">
+                                            <div>
+                                                <strong id="colorblind-label">Color Blind Mode</strong>
+                                                <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">Use a color-blind friendly palette for key UI elements.</p>
+                                            </div>
+                                            <div class="toggle-switch" id="colorblind-toggle" onclick="toggleSetting('color_blind_mode')"></div>
+                                        </div>
+
+                                        <div class="setting-item">
+                                            <div>
+                                                <strong id="sidebar-label">Hide Sidebar</strong>
+                                                <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">Collapse the left navigation to focus on content.</p>
+                                            </div>
+                                            <div class="toggle-switch" id="sidebar-toggle" onclick="toggleSetting('hide_sidebar')"></div>
+                                        </div>
+
+                                <!-- Reduced Motion option removed per user request -->
 
                                 <div class="setting-item">
                                     <div>
@@ -1030,7 +1137,7 @@
                                             Required for gaze tracking.
                                         </p>
                                     </div>
-                                    <div class="toggle-switch active" id="camera-access-toggle" onclick="toggleCamera()"></div>
+                                    <div class="toggle-switch active" id="camera-access-toggle" onclick="toggleSetting('camera_access')"></div>
                                 </div>
 
                                 <div class="setting-item">
@@ -1040,7 +1147,17 @@
                                             Required for voice commands.
                                         </p>
                                     </div>
-                                    <div class="toggle-switch active" id="mic-access-toggle" onclick="toggleMicrophone()"></div>
+                                    <div>
+                                        <div style="display:flex; gap:8px; align-items:center;">
+                                            <div class="toggle-switch active" id="mic-access-toggle" onclick="toggleMicrophoneWithFeedback()"></div>
+                                            <select id="mic-device-select" style="margin-left:8px; padding:6px; font-size:13px;"></select>
+                                            <button style="margin-left:6px; padding:6px 8px;" onclick="populateMicDevices()">Refresh</button>
+                                            <div id="mic-level-wrap" style="display:flex; align-items:center; gap:8px; margin-left:8px;">
+                                                <div id="mic-level-meter" style="width:120px; height:10px; background:#eee; border-radius:6px; overflow:hidden;"></div>
+                                                <div id="mic-level-value" style="font-size:12px; color:#6e6e73;">—</div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1184,9 +1301,12 @@
                 language: 'English',
                 proactive_interventions: true,
                 dyslexia_font: false,
-                reduced_motion: false,
+                dark_mode: false,
+                color_blind_mode: false,
+                hide_sidebar: false,
                 color_contrast: 'Standard',
-                buddy_persona: 'Friendly Peer'
+                buddy_persona: 'Friendly Peer',
+                camera_access: true
             },
             audioInitialized: false
         };
@@ -1252,7 +1372,9 @@
             setText('distraction-title', t.distractionTitle);
             setText('distraction-desc', t.distractionDesc);
             setText('ai-insight-title', t.aiInsightTitle);
-            setHTML('ai-insight-desc', t.aiInsightDesc);
+            // Only set the static AI insight description if it hasn't been replaced by dynamic content
+            const aiDescEl = document.getElementById('ai-insight-desc');
+            if (aiDescEl && aiDescEl.dataset.dynamic !== 'true') aiDescEl.innerHTML = t.aiInsightDesc;
             setText('settings-title', t.settingsTitle);
             setText('settings-desc', t.settingsDesc);
             setText('dyslexia-label', t.dyslexiaLabel);
@@ -1283,6 +1405,9 @@
             renderTasks();
             applyLanguage(); // Initial apply
 
+            // Populate microphone devices in settings
+            try { populateMicDevices(); } catch (e) { console.warn('populateMicDevices failed', e); }
+
             document.body.addEventListener('click', () => {
                 if (!appState.audioInitialized) {
                     const prime = new SpeechSynthesisUtterance("");
@@ -1290,6 +1415,17 @@
                     appState.audioInitialized = true;
                     console.log("Audio Engine Unlocked");
                 }
+
+                // Also attempt to create/resume the notification audio context on first user gesture
+                try {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx && !notificationAudioCtx) {
+                        notificationAudioCtx = new AudioCtx();
+                        if (notificationAudioCtx.state === 'suspended') notificationAudioCtx.resume().catch(() => {});
+                    } else if (notificationAudioCtx && notificationAudioCtx.state === 'suspended') {
+                        notificationAudioCtx.resume().catch(() => {});
+                    }
+                } catch (e) { /* ignore */ }
             }, { once: true });
 
             setInterval(updateState, 300);
@@ -1337,6 +1473,20 @@
             if (focusPercentage && focusBar) {
                 focusPercentage.textContent = appState.focusScore + '%';
                 focusBar.style.width = appState.focusScore + '%';
+
+                // Update fill color based on focus score
+                const fillEl = (focusBar.classList && focusBar.classList.contains('progress-fill')) ? focusBar : focusBar.querySelector('.progress-fill');
+                if (fillEl) {
+                    const score = Number(appState.focusScore) || 0;
+                    if (score >= 75) {
+                        fillEl.style.background = 'linear-gradient(90deg, #5ec4a9, #98d8c8)';
+                    } else if (score >= 50) {
+                        fillEl.style.background = 'linear-gradient(90deg, #fbbf24, #f97316)';
+                    } else {
+                        fillEl.style.background = 'linear-gradient(90deg, #ef4444, #f43f5e)';
+                    }
+                }
+
                 appState.focusHistory.push(appState.focusScore);
                 if (appState.focusHistory.length > 20) appState.focusHistory.shift();
             }
@@ -1351,12 +1501,20 @@
                 document.getElementById('video-container').classList.add('hidden');
             }
 
-            const micButton = document.getElementById('mic-toggle');
-            if (appState.microphoneActive) {
-                micButton.classList.add('active');
-            } else {
-                micButton.classList.remove('active');
+            // Sync camera UI toggles (settings permission + main camera button)
+            const cameraSettingsToggle = document.getElementById('camera-access-toggle');
+            const cameraMainButton = document.getElementById('camera-toggle');
+            if (cameraSettingsToggle) cameraSettingsToggle.classList.toggle('active', !!appState.settings.camera_access);
+            if (cameraMainButton) {
+                cameraMainButton.classList.toggle('active', !!appState.cameraActive);
+                cameraMainButton.disabled = !appState.settings.camera_access;
             }
+
+            // Sync microphone UI toggles (chat mic button + settings toggle)
+            const micButton = document.getElementById('mic-toggle');
+            const micSettingsToggle = document.getElementById('mic-access-toggle');
+            if (micButton) micButton.classList.toggle('active', !!appState.microphoneActive);
+            if (micSettingsToggle) micSettingsToggle.classList.toggle('active', !!appState.microphoneActive);
 
             if (appState.analytics) {
                 const deepFocusEl = document.getElementById('deep-focus-score');
@@ -1389,6 +1547,83 @@
             }
         }
 
+        // Show a temporary notice when camera access is disabled
+        function showCameraAccessNotice() {
+            showFeedback('Camera access is disabled in Settings. Enable it there to use the camera.', 'warning');
+        }
+
+        // Lightweight, ear-friendly notification sound using WebAudio
+        // Gentle sine chime with soft attack and decay
+        let notificationAudioCtx = null;
+        function playNotificationSound() {
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                if (!notificationAudioCtx) notificationAudioCtx = new AudioCtx();
+
+                // Resume if suspended due to autoplay policies
+                if (notificationAudioCtx.state === 'suspended') {
+                    notificationAudioCtx.resume().catch(() => {});
+                }
+
+                const now = notificationAudioCtx.currentTime;
+
+                // Master gain (low volume for comfort)
+                const masterGain = notificationAudioCtx.createGain();
+                masterGain.gain.value = 0.0;
+                masterGain.connect(notificationAudioCtx.destination);
+
+                // Main gentle sine tone (pleasant frequency)
+                const tone = notificationAudioCtx.createOscillator();
+                tone.type = 'sine';
+                tone.frequency.value = 880; // A5, but we'll keep it soft
+                tone.connect(masterGain);
+
+                // Subtle harmonic for warmth
+                const harmonic = notificationAudioCtx.createOscillator();
+                harmonic.type = 'sine';
+                harmonic.frequency.value = 1320; // 1.5x harmonic
+                const harmGain = notificationAudioCtx.createGain();
+                harmGain.gain.value = 0.12; // much quieter harmonic
+                harmonic.connect(harmGain);
+                harmGain.connect(masterGain);
+
+                // Envelope: soft attack and slow decay
+                const attack = 0.02;
+                const sustain = 0.18;
+                const decay = 0.36;
+
+                masterGain.gain.setValueAtTime(0.0, now);
+                masterGain.gain.linearRampToValueAtTime(0.06, now + attack); // soft peak
+                masterGain.gain.exponentialRampToValueAtTime(0.0001, now + attack + sustain + decay);
+
+                tone.start(now);
+                harmonic.start(now + 0.01);
+
+                tone.stop(now + attack + sustain + decay + 0.02);
+                harmonic.stop(now + attack + sustain + decay + 0.02);
+            } catch (e) {
+                // ignore audio errors
+            }
+        }
+
+        // General feedback helper
+        function showFeedback(message, type = 'success', ms = 3000) {
+            const el = document.getElementById('settings-feedback');
+            if (!el) return;
+            el.textContent = message;
+            el.className = ''; // reset
+            el.classList.add(type === 'warning' ? 'warning' : 'success');
+            // animate visible
+            el.classList.add('visible');
+            // play sound for the notification
+            playNotificationSound();
+            // hide after timeout
+            setTimeout(() => {
+                el.classList.remove('visible');
+            }, ms);
+        }
+
         function showView(viewName) {
             const views = ['dashboard', 'schedule', 'analytics', 'settings'];
             views.forEach(view => {
@@ -1409,6 +1644,12 @@
         }
 
         async function toggleCamera() {
+            // Respect the camera access setting
+            if (!appState.settings.camera_access) {
+                showCameraAccessNotice();
+                return;
+            }
+
             try {
                 const response = await fetch('/api/toggle_camera', { method: 'POST' });
                 const data = await response.json();
@@ -1427,6 +1668,369 @@
                 updateUI();
             } catch (error) {
                 console.error('Error toggling microphone:', error);
+            }
+        }
+
+        // Provide feedback when microphone is toggled
+        async function toggleMicrophoneWithFeedback() {
+            try {
+                const response = await fetch('/api/toggle_microphone', { method: 'POST' });
+                const data = await response.json();
+                appState.microphoneActive = data.microphone_active;
+                updateUI();
+                showFeedback(appState.microphoneActive ? 'Microphone turned on' : 'Microphone turned off');
+            } catch (error) {
+                console.error('Error toggling microphone:', error);
+            }
+        }
+
+        // Start speech recognition and send transcript to server for processing
+        async function populateMicDevices() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const list = devices.filter(d => d.kind === 'audioinput');
+                const sel = document.getElementById('mic-device-select');
+                if (!sel) return;
+                sel.innerHTML = '';
+                list.forEach((d, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.text = d.label || `Microphone ${i+1}`;
+                    sel.appendChild(opt);
+                });
+                const saved = (appState.settings && appState.settings.mic_device_id) ? appState.settings.mic_device_id : localStorage.getItem('mic_device_id');
+                if (saved) sel.value = saved;
+                sel.onchange = () => {
+                    const id = sel.value;
+                    appState.settings.mic_device_id = id;
+                    localStorage.setItem('mic_device_id', id);
+                    try { updateSetting('mic_device_id', id); } catch (e) { console.warn('save mic id failed', e); }
+                };
+            } catch (e) { console.warn('populateMicDevices error', e); }
+        }
+
+        function updateMicMeter(rms) {
+            try {
+                const meter = document.getElementById('mic-level-meter');
+                const valEl = document.getElementById('mic-level-value');
+                if (!meter) return;
+                const normalized = Math.min(1, rms * 200); // scale small RMS to 0..1
+                meter.innerHTML = `<div style="height:100%; width:${Math.round(normalized*100)}%; background:#5ec4a9;"></div>`;
+                if (valEl) valEl.textContent = normalized > 0 ? (Math.round(normalized*100) + '%') : '—';
+            } catch (e) { console.warn('updateMicMeter error', e); }
+        }
+
+        async function startVoiceCapture() {
+            // Ensure browser supports Web Speech API
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                showFeedback('Speech recognition not supported in this browser.', 'warning');
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.lang = appState.settings.language === 'Urdu' ? 'ur-PK' : 'en-US';
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 3;
+
+            // Debugging helpers
+            let heardSomething = false;
+            let retryCount = 0;
+            let recordedChunks = [];
+            let recorder = null;
+
+            // Request microphone permission (await to ensure stream active)
+            try {
+                // prefer user-selected device if available
+                let selectedDevice = null;
+                try { selectedDevice = document.getElementById('mic-device-select') ? document.getElementById('mic-device-select').value : null; } catch (e) { selectedDevice = null; }
+                let constraints = selectedDevice ? { audio: { deviceId: { exact: selectedDevice } } } : { audio: true };
+                let stream = await navigator.mediaDevices.getUserMedia(constraints);
+                console.log('getUserMedia stream obtained', stream);
+                appState.microphoneActive = true;
+                updateUI();
+
+                // notify server
+                fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: true }) }).catch(() => {});
+
+                // Setup MediaRecorder fallback and Audio processing to improve recorded audio
+                let micLevelOk = true;
+                let audioCtx = null;
+                let sourceNode = null;
+                let analyser = null;
+                let destForRecording = null;
+                let gainNode = null;
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    sourceNode = audioCtx.createMediaStreamSource(stream);
+                    analyser = audioCtx.createAnalyser();
+                    analyser.fftSize = 2048;
+                    sourceNode.connect(analyser);
+
+                    // Create a gain and destination so we can record a boosted stream even if native mic is quiet
+                    gainNode = audioCtx.createGain();
+                    gainNode.gain.value = 1.0;
+                    destForRecording = audioCtx.createMediaStreamDestination();
+                    sourceNode.connect(gainNode);
+                    gainNode.connect(destForRecording);
+
+                    recordedChunks = [];
+                    const recorderStream = (destForRecording && destForRecording.stream) ? destForRecording.stream : stream;
+                    try {
+                        recorder = new MediaRecorder(recorderStream, { mimeType: 'audio/webm;codecs=opus' });
+                    } catch (mErr) {
+                        try { recorder = new MediaRecorder(recorderStream); } catch (mErr2) { throw mErr2; }
+                    }
+                    recorder.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunks.push(e.data); };
+                    recorder.onstop = async () => {
+                        try {
+                            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                            const url = URL.createObjectURL(blob);
+                            console.log('Recorded audio available', { blob, url, size: blob.size });
+                            if (!blob.size) {
+                                console.warn('Recorded blob is empty (size=0)');
+                            }
+                            let a = document.getElementById('recording-download');
+                            if (!a) {
+                                a = document.createElement('a');
+                                a.id = 'recording-download';
+                                a.style.display = 'none';
+                                document.body.appendChild(a);
+                            }
+                            a.href = url;
+                            a.download = 'last_capture.webm';
+                            console.log('Recording ready for download at #recording-download');
+
+                            // Auto-upload if we have non-empty data
+                            if (blob.size > 0) {
+                                try {
+                                    const fd = new FormData();
+                                    fd.append('file', blob, 'capture.webm');
+                                    const up = await fetch('/api/upload_audio', { method: 'POST', body: fd });
+                                    const j = await up.json();
+                                    console.log('Upload result', j);
+                                    if (j && j.success) showFeedback('Recorded audio uploaded for analysis.', 'success', 3000);
+                                } catch (ue) { console.warn('Upload failed', ue); }
+                            }
+                        } catch (ex) { console.warn('Error processing recording', ex); }
+                    };
+
+                    // sample RMS for ~400ms to estimate
+                    const data = new Float32Array(analyser.fftSize);
+                    let samples = 0; let rmsSum = 0;
+                    for (let i = 0; i < 8; i++) {
+                        analyser.getFloatTimeDomainData(data);
+                        let sum = 0; for (let j = 0; j < data.length; j++) sum += data[j] * data[j];
+                        const rms = Math.sqrt(sum / data.length);
+                        rmsSum += rms; samples++; updateMicMeter(rms);
+                        await new Promise(r => setTimeout(r, 50));
+                    }
+                    const avgRms = rmsSum / samples;
+                    console.log('Mic avg RMS:', avgRms);
+                    if (avgRms < 0.003) {
+                        micLevelOk = false;
+                        showFeedback('Microphone level appears low — speak louder or check settings.', 'warning', 4000);
+                        gainNode.gain.value = 10.0; // boost for recording
+                    }
+                } catch (recErr) {
+                    console.warn('MediaRecorder/audio processing failed to initialize', recErr);
+                    recorder = null;
+                }
+
+                // If mic level is very low, try alternate constraints (disable AGC/NS/EC)
+                if (!micLevelOk) {
+                    console.log('Low mic RMS detected — attempting alternate getUserMedia constraints');
+                    try {
+                        try { stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+                        const altConstraints = { audio: Object.assign({ noiseSuppression: false, autoGainControl: false, echoCancellation: false, sampleRate: 48000 }, (selectedDevice ? { deviceId: { exact: selectedDevice } } : {})) };
+                        showFeedback('Trying alternate microphone settings...', 'warning', 2500);
+                        const altStream = await navigator.mediaDevices.getUserMedia(altConstraints);
+                        stream = altStream; // replace stream reference
+                        // re-run quick RMS check on alt stream
+                        try {
+                            const audioCtx2 = new (window.AudioContext || window.webkitAudioContext)();
+                            const source2 = audioCtx2.createMediaStreamSource(stream);
+                            const analyser2 = audioCtx2.createAnalyser();
+                            analyser2.fftSize = 2048;
+                            source2.connect(analyser2);
+                            const data2 = new Float32Array(analyser2.fftSize);
+                            let samples2 = 0; let rmsSum2 = 0;
+                            for (let i = 0; i < 6; i++) {
+                                analyser2.getFloatTimeDomainData(data2);
+                                let sum2 = 0; for (let j = 0; j < data2.length; j++) sum2 += data2[j] * data2[j];
+                                const rms2 = Math.sqrt(sum2 / data2.length);
+                                rmsSum2 += rms2; samples2++; updateMicMeter(rms2); await new Promise(r => setTimeout(r, 40));
+                            }
+                            const avgRms2 = rmsSum2 / samples2;
+                            console.log('Alt mic avg RMS:', avgRms2);
+                            if (avgRms2 >= 0.003) {
+                                micLevelOk = true;
+                                showFeedback('Microphone level improved.', 'success', 2000);
+                            } else {
+                                showFeedback('Alternate mic settings did not improve level. Check Windows input levels or try another device.', 'warning', 5000);
+                            }
+                            try { audioCtx2.close(); } catch (e) {}
+                        } catch (e) { console.warn('Alt mic re-check failed', e); }
+                    } catch (e) {
+                        console.warn('Alternate getUserMedia attempt failed', e);
+                        showFeedback('Could not apply alternate mic settings.', 'warning', 3000);
+                    }
+                }
+
+                // Attach detailed event handlers for diagnosis
+                recognition.onaudiostart = (e) => console.log('recognition.onaudiostart', e);
+                recognition.onsoundstart = (e) => console.log('recognition.onsoundstart', e);
+                recognition.onspeechstart = (e) => { heardSomething = true; console.log('recognition.onspeechstart', e); showFeedback('Speech detected...', 'success', 1200); };
+                recognition.onspeechend = (e) => console.log('recognition.onspeechend', e);
+                recognition.onsoundend = (e) => console.log('recognition.onsoundend', e);
+                recognition.onaudioend = (e) => console.log('recognition.onaudioend', e);
+                recognition.onnomatch = (e) => { console.log('recognition.onnomatch', e); showFeedback('No recognizable speech detected.', 'warning', 2000); };
+
+                // Two-stage recognition flow: listen for wake-word ('buddy'), then prompt and capture the user's command.
+                recognition.onresult = async (event) => {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        transcript += event.results[i][0].transcript + (event.results[i].isFinal ? '' : '');
+                    }
+                    transcript = transcript.trim();
+                    console.log('recognition.onresult transcript:', transcript, event);
+
+                    const buddyEl = document.getElementById('buddy-message');
+                    if (buddyEl) buddyEl.textContent = 'You: ' + transcript;
+
+                    if (!transcript) return;
+
+                    // If user said the wake-word, start command listener
+                    if (/\bbuddy\b/i.test(transcript)) {
+                        console.log('Wake word detected — starting command capture');
+                        // Stop current recognition but keep stream so we can start command recognition
+                        try { recognition.stop(); } catch (e) { console.warn('Error stopping wake recognition', e); }
+
+                        const promptText = appState.settings.language === 'Urdu' ? 'میں آپ کی مدد کیسے کر سکتا ہوں؟' : 'How may I help you?';
+                        document.getElementById('buddy-message').textContent = promptText;
+                        speakMessage(promptText);
+
+                        // Wait until speechSynthesis finishes (to avoid echo) then start command recognition
+                        const startCommandRecognition = () => {
+                            const commandRec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+                            commandRec.lang = recognition.lang;
+                            commandRec.interimResults = false;
+                            commandRec.maxAlternatives = 5;
+                            let cmdHeard = false;
+
+                            commandRec.onstart = () => {
+                                console.log('commandRec.onstart');
+                                showFeedback('Listening for command...', 'success', 1500);
+                                try { if (recorder && recorder.state === 'inactive') recorder.start(); } catch (e) { }
+                            };
+
+                            commandRec.onresult = async (evt) => {
+                                let cmd = '';
+                                for (let i = evt.resultIndex; i < evt.results.length; i++) cmd += evt.results[i][0].transcript;
+                                cmd = cmd.trim();
+                                console.log('Command captured:', cmd);
+                                if (!cmd) return;
+                                cmdHeard = true;
+                                document.getElementById('buddy-message').textContent = 'You: ' + cmd;
+
+                                // Send command transcript to server for processing
+                                try {
+                                    const resp = await fetch('/api/voice_command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript: cmd }) });
+                                    const data = await resp.json();
+                                    const serverReply = data.reply || "I couldn't process that.";
+                                    document.getElementById('buddy-message').textContent = serverReply;
+                                    speakMessage(serverReply);
+
+                                    if (data.action) {
+                                        const act = data.action;
+                                        if (act.type === 'camera') { appState.cameraActive = !!act.value; updateUI(); }
+                                        else if (act.type === 'add_task' && act.task) { appState.tasks.push(act.task); renderTasks(); }
+                                        else if (act.type === 'setting' && act.name) { appState.settings[act.name] = act.value; applySettings(); }
+                                    }
+                                } catch (err) {
+                                    console.error('Voice command error', err);
+                                    showFeedback('Failed to send voice command', 'warning');
+                                }
+                            };
+
+                            commandRec.onerror = (e) => {
+                                console.error('commandRec.onerror', e);
+                                showFeedback('Command recognition error', 'warning', 3000);
+                            };
+
+                            commandRec.onend = () => {
+                                console.log('commandRec.onend - cmdHeard=', cmdHeard);
+                                try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch (e) { }
+                                try { stream.getTracks().forEach(t => t.stop()); } catch (e) { }
+                                appState.microphoneActive = false; updateUI();
+                                fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: false }) }).catch(() => {});
+                            };
+
+                            try { commandRec.start(); } catch (e) { console.warn('Failed to start command recognition', e); }
+                        };
+
+                        if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
+                            const waitInterval = setInterval(() => {
+                                if (!window.speechSynthesis.speaking) { clearInterval(waitInterval); startCommandRecognition(); }
+                            }, 100);
+                        } else {
+                            // small delay to avoid clipping user's first words
+                            setTimeout(startCommandRecognition, 300);
+                        }
+
+                        return; // don't forward the wake-word transcript to server
+                    }
+
+                    // If wake-word was not present, optionally inform user
+                    showFeedback("Say 'Buddy' first to wake the assistant.", 'warning', 1800);
+                };
+
+                recognition.onerror = (e) => {
+                    console.error('Recognition error', e);
+                    const errMsg = (e && (e.error || e.message)) ? (e.error || e.message) : 'Speech recognition error';
+                    showFeedback('Speech recognition error: ' + errMsg, 'warning', 4000);
+                    try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch (ex) { }
+                    try { stream.getTracks().forEach(t => t.stop()); } catch (ex) { }
+                    appState.microphoneActive = false; updateUI();
+                    fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: false }) }).catch(() => {});
+                };
+
+                recognition.onstart = () => {
+                    console.log('recognition.onstart (wake-listen)');
+                    showFeedback('Listening for "Buddy"...', 'success', 1500);
+                    appState.microphoneActive = true; updateUI();
+                    try { if (recorder && recorder.state === 'inactive') recorder.start(); } catch (e) { console.warn('Could not start recorder', e); }
+                };
+
+                recognition.onend = () => {
+                    console.log('recognition.onend - heardSomething=', heardSomething, 'retryCount=', retryCount);
+                    try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch (e) { }
+                    try { stream.getTracks().forEach(t => t.stop()); } catch (e) { }
+                    // If nothing was heard, try one retry before giving up
+                    if (!heardSomething && retryCount < 1) {
+                        retryCount++;
+                        showFeedback('No speech detected — please say "Buddy" then your command. Retrying...', 'warning', 3000);
+                        try { recognition.start(); } catch (startErr) { console.warn('Retry start failed', startErr); }
+                        return;
+                    }
+                    appState.microphoneActive = false; updateUI();
+                    fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: false }) }).catch(() => {});
+                };
+
+                // Start recognition after a short pause to ensure the stream is active
+                try {
+                    await new Promise(r => setTimeout(r, 180));
+                    recognition.continuous = false;
+                    recognition.start();
+                } catch (e) {
+                    console.error('Recognition start error', e);
+                    showFeedback('Could not start speech recognition.', 'warning');
+                }
+
+            } catch (err) {
+                console.error('Microphone permission denied or error', err);
+                showFeedback('Microphone permission denied or unavailable.', 'warning');
             }
         }
 
@@ -1456,9 +2060,42 @@
             if (message) {
                 document.getElementById('buddy-message').textContent = 'You: ' + message;
                 input.value = '';
-                setTimeout(() => {
-                    document.getElementById('buddy-message').textContent = "I'm here to help! Let's stay focused together.";
-                }, 1000);
+                // send to server for unified handling (same as voice)
+                fetch('/api/voice_command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript: message }) })
+                    .then(r => r.json())
+                    .then(data => {
+                        const serverReply = data.reply || "I couldn't process that.";
+                        document.getElementById('buddy-message').textContent = serverReply;
+                        speakMessage(serverReply);
+                        if (data.action) handleServerAction(data.action);
+                    }).catch(err => {
+                        console.error('sendMessage error', err);
+                        document.getElementById('buddy-message').textContent = "Sorry, I couldn't reach the assistant.";
+                    });
+            }
+        }
+
+        function handleServerAction(action) {
+            if (!action || !action.type) return;
+            if (action.type === 'add_task' && action.task) {
+                appState.tasks.push(action.task);
+                renderTasks();
+                showFeedback('Task added by Buddy.', 'success', 2500);
+            } else if (action.type === 'add_schedule' && action.entry) {
+                // For simplicity, re-render schedule view after adding
+                showFeedback('Schedule created by Buddy.', 'success', 2500);
+                // refresh state from server to pick up changes
+                loadState();
+            } else if (action.type === 'suggest_dopamine' && action.suggestion) {
+                // Buddy suggested a dopamine-boosting activity
+                document.getElementById('buddy-message').textContent = action.suggestion;
+                speakMessage(action.suggestion);
+            } else if (action.type === 'report_focus') {
+                showFeedback(`Focus: ${action.value}%`, 'success', 2500);
+            } else if (action.type === 'camera') {
+                appState.cameraActive = !!action.value; updateUI();
+            } else if (action.type === 'setting' && action.name) {
+                appState.settings[action.name] = action.value; applySettings();
             }
         }
 
@@ -1616,14 +2253,118 @@
             }
         }
 
-        function renderAnalytics() {
-            document.getElementById('deep-focus-score').textContent = appState.analytics.deep_focus_score + '%';
-            document.getElementById('total-focus-time').textContent = appState.analytics.total_focus_time;
-            document.getElementById('consistency').textContent = appState.analytics.consistency + '%';
-            document.getElementById('distractions').textContent = appState.analytics.distractions;
+        async function renderAnalytics() {
+            const a = appState.analytics || {};
+            const deepEl = document.getElementById('deep-focus-score');
+            const totalEl = document.getElementById('total-focus-time');
+            const consEl = document.getElementById('consistency');
+            const distEl = document.getElementById('distractions');
 
-            if (appState.analytics.peak_insight_time) {
-                document.getElementById('peak-insight-time').textContent = appState.analytics.peak_insight_time;
+            if (deepEl) deepEl.textContent = (a.deep_focus_score ?? 0) + '%';
+            if (totalEl) totalEl.textContent = a.total_focus_time || '0m';
+            if (consEl) consEl.textContent = (a.consistency ?? 0) + '%';
+            if (distEl) distEl.textContent = a.distractions ?? 0;
+
+            // Try server-generated AI insight first (preferred)
+            let usedServerInsight = false;
+            try {
+                const resp = await fetch('/api/ai_insight');
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const titleEl = document.getElementById('ai-insight-title');
+                    const descEl = document.getElementById('ai-insight-desc');
+                    if (titleEl && data.title) titleEl.textContent = data.title;
+                    if (descEl && data.desc) {
+                        descEl.innerHTML = data.desc;
+                        descEl.dataset.dynamic = 'true';
+                    }
+                    usedServerInsight = true;
+                }
+            } catch (e) {
+                // server insight failed; fall back to client-side heuristics below
+            }
+
+            // Derive a peak time if not provided
+            let peakTime = a.peak_insight_time;
+            try {
+                if (!peakTime && Array.isArray(appState.focusHistory) && appState.focusHistory.length) {
+                    const maxVal = Math.max(...appState.focusHistory);
+                    const idx = appState.focusHistory.indexOf(maxVal);
+                    // Map index to a friendly time-of-day bucket
+                    const n = appState.focusHistory.length;
+                    const part = idx < n/3 ? 'morning' : (idx < 2*n/3 ? 'afternoon' : 'evening');
+                    peakTime = `around ${part}`;
+                }
+            } catch (e) {
+                console.warn('Error computing peak time:', e);
+            }
+
+            if (peakTime) {
+                const peakEl = document.getElementById('peak-insight-time');
+                if (peakEl) peakEl.textContent = peakTime;
+            }
+
+            // Build a concise, actionable AI insight (client fallback if server unavailable)
+            let title = 'AI Insight';
+            let desc = '';
+
+            const deepScore = a.deep_focus_score ?? null;
+            const consistency = a.consistency ?? null;
+            const distractions = a.distractions ?? null;
+
+            // Human-friendly peak window
+            let peakWindow = a.peak_insight_time || null;
+            if (!peakWindow && peakTime) {
+                if (peakTime.includes('morning')) peakWindow = '9:00 AM - 11:00 AM';
+                else if (peakTime.includes('afternoon')) peakWindow = '1:00 PM - 3:00 PM';
+                else if (peakTime.includes('evening')) peakWindow = '6:00 PM - 8:00 PM';
+                else peakWindow = peakTime;
+            }
+
+            // Suggested task (first unfinished) or generic example
+            let suggestedTask = null;
+            try {
+                if (Array.isArray(appState.tasks) && appState.tasks.length) {
+                    const unfinished = appState.tasks.find(t => (t.completed ?? 0) < (t.total ?? 1));
+                    if (unfinished) suggestedTask = unfinished.title;
+                    else {
+                        const mathTask = appState.tasks.find(t => /math/i.test(t.title));
+                        if (mathTask) suggestedTask = mathTask.title;
+                    }
+                }
+            } catch (e) { /* ignore */ }
+            if (!suggestedTask) suggestedTask = 'challenging subjects (e.g., Math)';
+
+            // Session length recommendation based on deep focus
+            let sessionAdvice = 'Try 20–25 minute Pomodoro sessions to build momentum.';
+            if (deepScore !== null) {
+                if (deepScore >= 75) sessionAdvice = 'Schedule longer, uninterrupted sessions (60–90 minutes).';
+                else if (deepScore >= 50) sessionAdvice = 'Aim for 45–60 minute focused sessions.';
+            }
+
+            // Compose description
+            if (peakWindow) {
+                desc += `Based on recent performance, your focus tends to peak around <strong>${peakWindow}</strong>. `;
+            } else {
+                desc += `Based on recent performance, we detected a recurring peak focus window. `;
+            }
+            desc += `We recommend scheduling your most challenging tasks — like <em>${suggestedTask}</em> — during that period. ${sessionAdvice} `;
+
+            if (consistency !== null && consistency < 60) {
+                desc += 'Your routine consistency is low; try a regular daily start time and limit context switching. ';
+            }
+            if (distractions !== null && distractions > 3) {
+                desc += 'Reduce notifications and external interruptions during focused blocks to lower distractions.';
+            }
+
+            if (!usedServerInsight) {
+                const titleEl = document.getElementById('ai-insight-title');
+                const descEl = document.getElementById('ai-insight-desc');
+                if (titleEl) titleEl.textContent = `${title}: ${peakWindow ? 'Peak Focus Window' : 'Personalized Tip'}`;
+                if (descEl) {
+                    descEl.innerHTML = desc;
+                    descEl.dataset.dynamic = 'true';
+                }
             }
 
             renderFocusChart();
@@ -1720,7 +2461,34 @@
             } catch (error) {
                 console.error('Error saving settings:', error);
             }
+            // If camera access was turned off, ensure camera is disabled immediately
+            if (settingName === 'camera_access' && !appState.settings.camera_access) {
+                try {
+                    // If camera currently active, request server to turn it off
+                    if (appState.cameraActive) {
+                        const resp = await fetch('/api/toggle_camera', { method: 'POST' });
+                        const d = await resp.json();
+                        appState.cameraActive = d.camera_active;
+                    }
+                } catch (err) {
+                    console.error('Error disabling camera after permission change:', err);
+                }
+            }
             applySettings();
+
+            // Provide user feedback about the change
+            const toggleMessages = {
+                'dyslexia_font': ['Font changed to dyslexic friendly', 'Dyslexic font disabled'],
+                'proactive_interventions': ['Proactive interventions enabled', 'Proactive interventions disabled'],
+                'camera_access': ['Camera access enabled', 'Camera access disabled'],
+                'dark_mode': ['Dark mode enabled', 'Light mode enabled'],
+                'color_blind_mode': ['Color-blind mode enabled', 'Color-blind mode disabled'],
+                'hide_sidebar': ['Sidebar hidden', 'Sidebar shown']
+            };
+            if (toggleMessages[settingName]) {
+                const msg = appState.settings[settingName] ? toggleMessages[settingName][0] : toggleMessages[settingName][1];
+                showFeedback(msg);
+            }
         }
 
         async function updateSetting(settingName, value) {
@@ -1740,35 +2508,60 @@
             if (settingName === 'language') {
                 applyLanguage();
             }
+            // Feedback for select-style settings
+            const selectMessages = {
+                'color_contrast': (v) => `Color contrast set to ${v}`,
+                'buddy_persona': (v) => `Buddy persona set to ${v}`,
+                'language': (v) => `Language set to ${v}`
+            };
+            if (selectMessages[settingName]) showFeedback(selectMessages[settingName](value));
         }
 
         function applySettings() {
-            document.body.classList.toggle('dyslexia-font', appState.settings.dyslexia_font);
-            document.body.classList.toggle('reduced-motion', appState.settings.reduced_motion);
+                    // Dyslexia font
+                    document.body.classList.toggle('dyslexia-font', appState.settings.dyslexia_font);
 
-            document.body.classList.remove('high-contrast', 'maximum-contrast');
-            if (appState.settings.color_contrast === 'High') {
-                document.body.classList.add('high-contrast');
-            } else if (appState.settings.color_contrast === 'Maximum') {
-                document.body.classList.add('maximum-contrast');
-            }
+                    // Dark mode
+                    document.body.classList.toggle('dark-mode', !!appState.settings.dark_mode);
 
-            document.getElementById('dyslexia-toggle').classList.toggle('active', appState.settings.dyslexia_font);
-            document.getElementById('motion-toggle').classList.toggle('active', appState.settings.reduced_motion);
-            document.getElementById('intervention-toggle').classList.toggle('active', appState.settings.proactive_interventions);
-            document.getElementById('contrast-select').value = appState.settings.color_contrast || 'Standard';
-            document.getElementById('persona-select').value = appState.settings.buddy_persona || 'Friendly Peer';
-            document.getElementById('language-select').value = appState.settings.language || 'English';
+                    // Color-blind mode
+                    document.body.classList.toggle('color-blind', !!appState.settings.color_blind_mode);
 
-            applyLanguage();
+                    // Hide/Show sidebar
+                    const sidebarEl = document.querySelector('.sidebar');
+                    if (sidebarEl) sidebarEl.classList.toggle('hidden', !!appState.settings.hide_sidebar);
+
+                    // Contrast levels
+                    document.body.classList.remove('high-contrast', 'maximum-contrast');
+                    if (appState.settings.color_contrast === 'High') {
+                        document.body.classList.add('high-contrast');
+                    } else if (appState.settings.color_contrast === 'Maximum') {
+                        document.body.classList.add('maximum-contrast');
+                    }
+
+                    // Sync toggle controls
+                    const safeToggle = (id, val) => { const el = document.getElementById(id); if (el) el.classList.toggle('active', !!val); };
+                    safeToggle('dyslexia-toggle', appState.settings.dyslexia_font);
+                    safeToggle('intervention-toggle', appState.settings.proactive_interventions);
+                    safeToggle('camera-access-toggle', appState.settings.camera_access);
+                    safeToggle('darkmode-toggle', appState.settings.dark_mode);
+                    safeToggle('colorblind-toggle', appState.settings.color_blind_mode);
+                    safeToggle('sidebar-toggle', appState.settings.hide_sidebar);
+
+                    // Sync selects
+                    const cs = document.getElementById('contrast-select'); if (cs) cs.value = appState.settings.color_contrast || 'Standard';
+                    const ps = document.getElementById('persona-select'); if (ps) ps.value = appState.settings.buddy_persona || 'Friendly Peer';
+                    const ls = document.getElementById('language-select'); if (ls) ls.value = appState.settings.language || 'English';
+
+                    applyLanguage();
         }
 
         function triggerBreak(activity) {
             const messages = {
-                'jumping-jacks': "Great choice! Do 5 jumping jacks and come back energized! 🤸",
-                'water': "Perfect! Stay hydrated. I'll be here when you get back! 💧",
-                'pet': "Aww, go give your cat some love! See you in a minute! 🐱",
-                'stretch': "Good idea! Stretch those muscles. Your body will thank you! 🧘"
+                'jumping-jacks': "Great choice! Do 5 jumping jacks and come back energized!",
+                'water': "Perfect! Stay hydrated. I'll be here when you get back!",
+                'pet': "Aww, go give your cat some love! See you in a minute!",
+                'stretch': "Good idea! Stretch those muscles. Your body will thank you!"
             };
 
             const message = messages[activity] || "Nice! Taking a quick break is smart. See you soon!";
