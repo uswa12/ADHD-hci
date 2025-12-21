@@ -1722,318 +1722,87 @@
         }
 
         async function startVoiceCapture() {
-            // Ensure browser supports Web Speech API
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                showFeedback('Speech recognition not supported in this browser.', 'warning');
-                return;
-            }
+    // Ensure browser supports Web Speech API
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        showFeedback('Speech recognition not supported in this browser.', 'warning');
+        return;
+    }
 
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognition = new SpeechRecognition();
-            recognition.lang = appState.settings.language === 'Urdu' ? 'ur-PK' : 'en-US';
-            recognition.interimResults = true;
-            recognition.maxAlternatives = 3;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = appState.settings.language === 'Urdu' ? 'ur-PK' : 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
 
-            // Debugging helpers
-            let heardSomething = false;
-            let retryCount = 0;
-            let recordedChunks = [];
-            let recorder = null;
+    let heardSomething = false;
 
-            // Request microphone permission (await to ensure stream active)
-            try {
-                // prefer user-selected device if available
-                let selectedDevice = null;
-                try { selectedDevice = document.getElementById('mic-device-select') ? document.getElementById('mic-device-select').value : null; } catch (e) { selectedDevice = null; }
-                let constraints = selectedDevice ? { audio: { deviceId: { exact: selectedDevice } } } : { audio: true };
-                let stream = await navigator.mediaDevices.getUserMedia(constraints);
-                console.log('getUserMedia stream obtained', stream);
-                appState.microphoneActive = true;
-                updateUI();
+    recognition.onstart = () => {
+        console.log('Recognition started');
+        showFeedback('Listening...', 'success', 2000);
+        appState.microphoneActive = true;
+        updateUI();
+    };
 
-                // notify server
-                fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: true }) }).catch(() => {});
-
-                // Setup MediaRecorder fallback and Audio processing to improve recorded audio
-                let micLevelOk = true;
-                let audioCtx = null;
-                let sourceNode = null;
-                let analyser = null;
-                let destForRecording = null;
-                let gainNode = null;
-                try {
-                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    sourceNode = audioCtx.createMediaStreamSource(stream);
-                    analyser = audioCtx.createAnalyser();
-                    analyser.fftSize = 2048;
-                    sourceNode.connect(analyser);
-
-                    // Create a gain and destination so we can record a boosted stream even if native mic is quiet
-                    gainNode = audioCtx.createGain();
-                    gainNode.gain.value = 1.0;
-                    destForRecording = audioCtx.createMediaStreamDestination();
-                    sourceNode.connect(gainNode);
-                    gainNode.connect(destForRecording);
-
-                    recordedChunks = [];
-                    const recorderStream = (destForRecording && destForRecording.stream) ? destForRecording.stream : stream;
-                    try {
-                        recorder = new MediaRecorder(recorderStream, { mimeType: 'audio/webm;codecs=opus' });
-                    } catch (mErr) {
-                        try { recorder = new MediaRecorder(recorderStream); } catch (mErr2) { throw mErr2; }
-                    }
-                    recorder.ondataavailable = (e) => { if (e.data && e.data.size) recordedChunks.push(e.data); };
-                    recorder.onstop = async () => {
-                        try {
-                            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-                            const url = URL.createObjectURL(blob);
-                            console.log('Recorded audio available', { blob, url, size: blob.size });
-                            if (!blob.size) {
-                                console.warn('Recorded blob is empty (size=0)');
-                            }
-                            let a = document.getElementById('recording-download');
-                            if (!a) {
-                                a = document.createElement('a');
-                                a.id = 'recording-download';
-                                a.style.display = 'none';
-                                document.body.appendChild(a);
-                            }
-                            a.href = url;
-                            a.download = 'last_capture.webm';
-                            console.log('Recording ready for download at #recording-download');
-
-                            // Auto-upload if we have non-empty data
-                            if (blob.size > 0) {
-                                try {
-                                    const fd = new FormData();
-                                    fd.append('file', blob, 'capture.webm');
-                                    const up = await fetch('/api/upload_audio', { method: 'POST', body: fd });
-                                    const j = await up.json();
-                                    console.log('Upload result', j);
-                                    if (j && j.success) showFeedback('Recorded audio uploaded for analysis.', 'success', 3000);
-                                } catch (ue) { console.warn('Upload failed', ue); }
-                            }
-                        } catch (ex) { console.warn('Error processing recording', ex); }
-                    };
-
-                    // sample RMS for ~400ms to estimate
-                    const data = new Float32Array(analyser.fftSize);
-                    let samples = 0; let rmsSum = 0;
-                    for (let i = 0; i < 8; i++) {
-                        analyser.getFloatTimeDomainData(data);
-                        let sum = 0; for (let j = 0; j < data.length; j++) sum += data[j] * data[j];
-                        const rms = Math.sqrt(sum / data.length);
-                        rmsSum += rms; samples++; updateMicMeter(rms);
-                        await new Promise(r => setTimeout(r, 50));
-                    }
-                    const avgRms = rmsSum / samples;
-                    console.log('Mic avg RMS:', avgRms);
-                    if (avgRms < 0.003) {
-                        micLevelOk = false;
-                        showFeedback('Microphone level appears low — speak louder or check settings.', 'warning', 4000);
-                        gainNode.gain.value = 10.0; // boost for recording
-                    }
-                } catch (recErr) {
-                    console.warn('MediaRecorder/audio processing failed to initialize', recErr);
-                    recorder = null;
-                }
-
-                // If mic level is very low, try alternate constraints (disable AGC/NS/EC)
-                if (!micLevelOk) {
-                    console.log('Low mic RMS detected — attempting alternate getUserMedia constraints');
-                    try {
-                        try { stream.getTracks().forEach(t => t.stop()); } catch (e) {}
-                        const altConstraints = { audio: Object.assign({ noiseSuppression: false, autoGainControl: false, echoCancellation: false, sampleRate: 48000 }, (selectedDevice ? { deviceId: { exact: selectedDevice } } : {})) };
-                        showFeedback('Trying alternate microphone settings...', 'warning', 2500);
-                        const altStream = await navigator.mediaDevices.getUserMedia(altConstraints);
-                        stream = altStream; // replace stream reference
-                        // re-run quick RMS check on alt stream
-                        try {
-                            const audioCtx2 = new (window.AudioContext || window.webkitAudioContext)();
-                            const source2 = audioCtx2.createMediaStreamSource(stream);
-                            const analyser2 = audioCtx2.createAnalyser();
-                            analyser2.fftSize = 2048;
-                            source2.connect(analyser2);
-                            const data2 = new Float32Array(analyser2.fftSize);
-                            let samples2 = 0; let rmsSum2 = 0;
-                            for (let i = 0; i < 6; i++) {
-                                analyser2.getFloatTimeDomainData(data2);
-                                let sum2 = 0; for (let j = 0; j < data2.length; j++) sum2 += data2[j] * data2[j];
-                                const rms2 = Math.sqrt(sum2 / data2.length);
-                                rmsSum2 += rms2; samples2++; updateMicMeter(rms2); await new Promise(r => setTimeout(r, 40));
-                            }
-                            const avgRms2 = rmsSum2 / samples2;
-                            console.log('Alt mic avg RMS:', avgRms2);
-                            if (avgRms2 >= 0.003) {
-                                micLevelOk = true;
-                                showFeedback('Microphone level improved.', 'success', 2000);
-                            } else {
-                                showFeedback('Alternate mic settings did not improve level. Check Windows input levels or try another device.', 'warning', 5000);
-                            }
-                            try { audioCtx2.close(); } catch (e) {}
-                        } catch (e) { console.warn('Alt mic re-check failed', e); }
-                    } catch (e) {
-                        console.warn('Alternate getUserMedia attempt failed', e);
-                        showFeedback('Could not apply alternate mic settings.', 'warning', 3000);
-                    }
-                }
-
-                // Attach detailed event handlers for diagnosis
-                recognition.onaudiostart = (e) => console.log('recognition.onaudiostart', e);
-                recognition.onsoundstart = (e) => console.log('recognition.onsoundstart', e);
-                recognition.onspeechstart = (e) => { heardSomething = true; console.log('recognition.onspeechstart', e); showFeedback('Speech detected...', 'success', 1200); };
-                recognition.onspeechend = (e) => console.log('recognition.onspeechend', e);
-                recognition.onsoundend = (e) => console.log('recognition.onsoundend', e);
-                recognition.onaudioend = (e) => console.log('recognition.onaudioend', e);
-                recognition.onnomatch = (e) => { console.log('recognition.onnomatch', e); showFeedback('No recognizable speech detected.', 'warning', 2000); };
-
-                // Two-stage recognition flow: listen for wake-word ('buddy'), then prompt and capture the user's command.
-                recognition.onresult = async (event) => {
-                    let transcript = '';
-                    for (let i = event.resultIndex; i < event.results.length; i++) {
-                        transcript += event.results[i][0].transcript + (event.results[i].isFinal ? '' : '');
-                    }
-                    transcript = transcript.trim();
-                    console.log('recognition.onresult transcript:', transcript, event);
-
-                    const buddyEl = document.getElementById('buddy-message');
-                    if (buddyEl) buddyEl.textContent = 'You: ' + transcript;
-
-                    if (!transcript) return;
-
-                    // If user said the wake-word, start command listener
-                    if (/\bbuddy\b/i.test(transcript)) {
-                        console.log('Wake word detected — starting command capture');
-                        // Stop current recognition but keep stream so we can start command recognition
-                        try { recognition.stop(); } catch (e) { console.warn('Error stopping wake recognition', e); }
-
-                        const promptText = appState.settings.language === 'Urdu' ? 'میں آپ کی مدد کیسے کر سکتا ہوں؟' : 'How may I help you?';
-                        document.getElementById('buddy-message').textContent = promptText;
-                        speakMessage(promptText);
-
-                        // Wait until speechSynthesis finishes (to avoid echo) then start command recognition
-                        const startCommandRecognition = () => {
-                            const commandRec = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-                            commandRec.lang = recognition.lang;
-                            commandRec.interimResults = false;
-                            commandRec.maxAlternatives = 5;
-                            let cmdHeard = false;
-
-                            commandRec.onstart = () => {
-                                console.log('commandRec.onstart');
-                                showFeedback('Listening for command...', 'success', 1500);
-                                try { if (recorder && recorder.state === 'inactive') recorder.start(); } catch (e) { }
-                            };
-
-                            commandRec.onresult = async (evt) => {
-                                let cmd = '';
-                                for (let i = evt.resultIndex; i < evt.results.length; i++) cmd += evt.results[i][0].transcript;
-                                cmd = cmd.trim();
-                                console.log('Command captured:', cmd);
-                                if (!cmd) return;
-                                cmdHeard = true;
-                                document.getElementById('buddy-message').textContent = 'You: ' + cmd;
-
-                                // Send command transcript to server for processing
-                                try {
-                                    const resp = await fetch('/api/voice_command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ transcript: cmd }) });
-                                    const data = await resp.json();
-                                    const serverReply = data.reply || "I couldn't process that.";
-                                    document.getElementById('buddy-message').textContent = serverReply;
-                                    speakMessage(serverReply);
-
-                                    if (data.action) {
-                                        const act = data.action;
-                                        if (act.type === 'camera') { appState.cameraActive = !!act.value; updateUI(); }
-                                        else if (act.type === 'add_task' && act.task) { appState.tasks.push(act.task); renderTasks(); }
-                                        else if (act.type === 'setting' && act.name) { appState.settings[act.name] = act.value; applySettings(); }
-                                    }
-                                } catch (err) {
-                                    console.error('Voice command error', err);
-                                    showFeedback('Failed to send voice command', 'warning');
-                                }
-                            };
-
-                            commandRec.onerror = (e) => {
-                                console.error('commandRec.onerror', e);
-                                showFeedback('Command recognition error', 'warning', 3000);
-                            };
-
-                            commandRec.onend = () => {
-                                console.log('commandRec.onend - cmdHeard=', cmdHeard);
-                                try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch (e) { }
-                                try { stream.getTracks().forEach(t => t.stop()); } catch (e) { }
-                                appState.microphoneActive = false; updateUI();
-                                fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: false }) }).catch(() => {});
-                            };
-
-                            try { commandRec.start(); } catch (e) { console.warn('Failed to start command recognition', e); }
-                        };
-
-                        if ('speechSynthesis' in window && window.speechSynthesis.speaking) {
-                            const waitInterval = setInterval(() => {
-                                if (!window.speechSynthesis.speaking) { clearInterval(waitInterval); startCommandRecognition(); }
-                            }, 100);
-                        } else {
-                            // small delay to avoid clipping user's first words
-                            setTimeout(startCommandRecognition, 300);
-                        }
-
-                        return; // don't forward the wake-word transcript to server
-                    }
-
-                    // If wake-word was not present, optionally inform user
-                    showFeedback("Say 'Buddy' first to wake the assistant.", 'warning', 1800);
-                };
-
-                recognition.onerror = (e) => {
-                    console.error('Recognition error', e);
-                    const errMsg = (e && (e.error || e.message)) ? (e.error || e.message) : 'Speech recognition error';
-                    showFeedback('Speech recognition error: ' + errMsg, 'warning', 4000);
-                    try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch (ex) { }
-                    try { stream.getTracks().forEach(t => t.stop()); } catch (ex) { }
-                    appState.microphoneActive = false; updateUI();
-                    fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: false }) }).catch(() => {});
-                };
-
-                recognition.onstart = () => {
-                    console.log('recognition.onstart (wake-listen)');
-                    showFeedback('Listening for "Buddy"...', 'success', 1500);
-                    appState.microphoneActive = true; updateUI();
-                    try { if (recorder && recorder.state === 'inactive') recorder.start(); } catch (e) { console.warn('Could not start recorder', e); }
-                };
-
-                recognition.onend = () => {
-                    console.log('recognition.onend - heardSomething=', heardSomething, 'retryCount=', retryCount);
-                    try { if (recorder && recorder.state === 'recording') recorder.stop(); } catch (e) { }
-                    try { stream.getTracks().forEach(t => t.stop()); } catch (e) { }
-                    // If nothing was heard, try one retry before giving up
-                    if (!heardSomething && retryCount < 1) {
-                        retryCount++;
-                        showFeedback('No speech detected — please say "Buddy" then your command. Retrying...', 'warning', 3000);
-                        try { recognition.start(); } catch (startErr) { console.warn('Retry start failed', startErr); }
-                        return;
-                    }
-                    appState.microphoneActive = false; updateUI();
-                    fetch('/api/set_microphone', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: false }) }).catch(() => {});
-                };
-
-                // Start recognition after a short pause to ensure the stream is active
-                try {
-                    await new Promise(r => setTimeout(r, 180));
-                    recognition.continuous = false;
-                    recognition.start();
-                } catch (e) {
-                    console.error('Recognition start error', e);
-                    showFeedback('Could not start speech recognition.', 'warning');
-                }
-
-            } catch (err) {
-                console.error('Microphone permission denied or error', err);
-                showFeedback('Microphone permission denied or unavailable.', 'warning');
-            }
+    recognition.onresult = async (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
         }
+        transcript = transcript.trim();
+        console.log('Transcript:', transcript);
+        heardSomething = true;
 
+        if (!transcript) return;
+
+        const buddyEl = document.getElementById('buddy-message');
+        if (buddyEl) buddyEl.textContent = 'You: ' + transcript;
+
+        // Send to server
+        try {
+            const resp = await fetch('/api/voice_command', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transcript: transcript })
+            });
+            const data = await resp.json();
+            const serverReply = data.reply || "I couldn't process that.";
+            
+            if (buddyEl) buddyEl.textContent = serverReply;
+            speakMessage(serverReply);
+
+            if (data.action) {
+                handleServerAction(data.action);
+            }
+        } catch (err) {
+            console.error('Voice command error', err);
+            showFeedback('Failed to send voice command', 'warning');
+        }
+    };
+
+    recognition.onerror = (e) => {
+        console.error('Recognition error', e);
+        showFeedback('Speech recognition error: ' + (e.error || 'unknown'), 'warning', 3000);
+        appState.microphoneActive = false;
+        updateUI();
+    };
+
+    recognition.onend = () => {
+        console.log('Recognition ended');
+        appState.microphoneActive = false;
+        updateUI();
+        
+        if (!heardSomething) {
+            showFeedback('No speech detected. Please try again.', 'warning', 2000);
+        }
+    };
+
+    try {
+        recognition.start();
+    } catch (e) {
+        console.error('Failed to start recognition', e);
+        showFeedback('Could not start speech recognition.', 'warning');
+    }
+}
         async function checkBuddyMessages() {
             try {
                 const response = await fetch('/api/buddy_messages');
@@ -2076,29 +1845,39 @@
         }
 
         function handleServerAction(action) {
-            if (!action || !action.type) return;
-            if (action.type === 'add_task' && action.task) {
-                appState.tasks.push(action.task);
-                renderTasks();
-                showFeedback('Task added by Buddy.', 'success', 2500);
-            } else if (action.type === 'add_schedule' && action.entry) {
-                // For simplicity, re-render schedule view after adding
-                showFeedback('Schedule created by Buddy.', 'success', 2500);
-                // refresh state from server to pick up changes
-                loadState();
-            } else if (action.type === 'suggest_dopamine' && action.suggestion) {
-                // Buddy suggested a dopamine-boosting activity
-                document.getElementById('buddy-message').textContent = action.suggestion;
-                speakMessage(action.suggestion);
-            } else if (action.type === 'report_focus') {
-                showFeedback(`Focus: ${action.value}%`, 'success', 2500);
-            } else if (action.type === 'camera') {
-                appState.cameraActive = !!action.value; updateUI();
-            } else if (action.type === 'setting' && action.name) {
-                appState.settings[action.name] = action.value; applySettings();
-            }
-        }
-
+    if (!action || !action.type) return;
+    
+    console.log('Handling action:', action);
+    
+    // Handle different action types
+    if (action.type === 'add_task' && action.task) {
+        appState.tasks.push(action.task);
+        renderTasks();
+        showFeedback('Task added by Buddy.', 'success', 2500);
+    } else if (action.type === 'add_schedule' && action.entry) {
+        showFeedback('Schedule created by Buddy.', 'success', 2500);
+        loadState();
+    } else if (action.type === 'suggest_dopamine' && action.suggestion) {
+        document.getElementById('buddy-message').textContent = action.suggestion;
+        speakMessage(action.suggestion);
+    } else if (action.type === 'report_focus') {
+        showFeedback(`Focus: ${action.value}%`, 'success', 2500);
+    } else if (action.type === 'camera') {
+        appState.cameraActive = !!action.value; 
+        updateUI();
+    } else if (action.type === 'setting' && action.name) {
+        appState.settings[action.name] = action.value; 
+        applySettings();
+        showFeedback(`Setting updated: ${action.name}`, 'success', 2000);
+    } else if (action.type === 'navigate' && action.view) {
+        showView(action.view);
+        showFeedback(`Navigated to ${action.view}`, 'success', 1500);
+    } else if (action.type === 'removed_task' && action.task) {
+        appState.tasks = appState.tasks.filter(t => t.id !== action.task.id);
+        renderTasks();
+        showFeedback(`Task "${action.task.title}" removed`, 'success', 2500);
+    }
+}
         function renderTasks() {
             const container = document.getElementById('tasks-container');
             if (!container) return;
@@ -2492,30 +2271,42 @@
         }
 
         async function updateSetting(settingName, value) {
-            appState.settings[settingName] = value;
+    appState.settings[settingName] = value;
 
-            try {
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(appState.settings)
-                });
-            } catch (error) {
-                console.error('Save error:', error);
-            }
+    try {
+        await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(appState.settings)
+        });
+    } catch (error) {
+        console.error('Save error:', error);
+    }
 
-            applySettings();
-            if (settingName === 'language') {
-                applyLanguage();
-            }
-            // Feedback for select-style settings
-            const selectMessages = {
-                'color_contrast': (v) => `Color contrast set to ${v}`,
-                'buddy_persona': (v) => `Buddy persona set to ${v}`,
-                'language': (v) => `Language set to ${v}`
-            };
-            if (selectMessages[settingName]) showFeedback(selectMessages[settingName](value));
-        }
+    applySettings();
+    
+    // If language changed, apply it
+    if (settingName === 'language') {
+        applyLanguage();
+        showFeedback(`Language changed to ${value}`, 'success', 2500);
+    }
+    
+    // Feedback for other settings
+    const feedbackMessages = {
+        'color_contrast': (v) => `Color contrast set to ${v}`,
+        'buddy_persona': (v) => `Buddy persona set to ${v}`,
+        'dark_mode': (v) => v ? 'Dark mode enabled' : 'Dark mode disabled',
+        'dyslexia_font': (v) => v ? 'Dyslexia font enabled' : 'Dyslexia font disabled',
+        'color_blind_mode': (v) => v ? 'Color blind mode enabled' : 'Color blind mode disabled',
+        'hide_sidebar': (v) => v ? 'Sidebar hidden' : 'Sidebar shown',
+        'proactive_interventions': (v) => v ? 'Proactive interventions enabled' : 'Proactive interventions disabled',
+        'camera_access': (v) => v ? 'Camera access enabled' : 'Camera access disabled'
+    };
+    
+    if (feedbackMessages[settingName]) {
+        showFeedback(feedbackMessages[settingName](value));
+    }
+}
 
         function applySettings() {
                     // Dyslexia font

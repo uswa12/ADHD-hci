@@ -553,82 +553,138 @@ def set_microphone():
 def voice_command():
     data = request.json or {}
     transcript = (data.get('transcript') or '').strip()
+    print(f"\n=== VOICE COMMAND DEBUG ===")
+    print(f"Received data: {data}")
+    print(f"Transcript: '{transcript}'")
+    print(f"===========================\n")
     reply = "Sorry, I didn't understand. Could you repeat that?"
     action = {}
+    
+    print(f"Voice command received: '{transcript}'")
 
     if not transcript:
+        print("Empty transcript received")
         return jsonify({'reply': reply, 'action': action})
 
     t = transcript.lower()
+    print(f"Processing lowercase: '{t}'")
     with state.data_lock:
-        # Camera commands
-        if any(k in t for k in ['turn on camera', 'camera on', 'open camera', 'start camera']):
+        # Camera commands - more flexible regex
+        if re.search(r"\b(turn on|enable|start|open).{0,10}camera\b", t) or re.search(r"\bcamera.{0,10}(on|enable|start|open)\b", t):
+            print("Matched: Camera ON command")
             state.camera_active = True
             reply = "Camera turned on."
             action = {'type': 'camera', 'value': True}
-        elif any(k in t for k in ['turn off camera', 'camera off', 'close camera', 'stop camera']):
+        elif re.search(r"\b(turn off|disable|stop|close).{0,10}camera\b", t) or re.search(r"\bcamera.{0,10}(off|disable|stop|close)\b", t):
+            print("Matched: Camera OFF command")
             state.camera_active = False
             reply = "Camera turned off."
             action = {'type': 'camera', 'value': False}
-        # Remove / delete task via chat: e.g. "remove task 3" or "delete task homework" or "remove task called Paint" 
-        elif re.search(r"\b(remove|delete)\b.*\b(task|todo)\b", t):
-            # try to extract numeric id first
-            id_match = re.search(r"(?:task\s*(?:number|#)?\s*(\d+)|#(\d+))", t)
+        
+        # Remove/delete task - more flexible patterns
+        elif re.search(r"\b(remove|delete|clear|get rid of).{0,40}(task|todo|item)\b", t):
+            # Try to extract numeric id
+            id_match = re.search(r"(?:task|todo|item).{0,5}(\d+)", t)
+            title_match = re.search(r"\b(remove|delete|clear|get rid of).{0,5}(?:the\s+)?(?:task|todo|item).{0,5}(?:called|named|titled)?\s*['\"]?(?P<title>[^'\"]+)['\"]?", t, re.I)
             removed = None
+            
             if id_match:
-                tid = int(id_match.group(1) or id_match.group(2))
-                for i,tsk in enumerate(state.tasks):
+                tid = int(id_match.group(1))
+                for i, tsk in enumerate(state.tasks):
                     if tsk.get('id') == tid:
                         removed = state.tasks.pop(i)
                         break
+            elif title_match:
+                title = title_match.group('title').strip()
+                for i, tsk in enumerate(state.tasks):
+                    if title.lower() in tsk.get('title', '').lower():
+                        removed = state.tasks.pop(i)
+                        break
             else:
-                # try to parse title after the phrase
-                m = re.search(r"(?:remove|delete)\s+(?:the\s+)?(?:task|todo)(?:\s+(?:called|named)\s+)?['\"]?(?P<title>[^'\"]+)['\"]?", transcript, re.I)
-                title = None
-                if m:
-                    title = m.group('title').strip()
-                else:
-                    # fallback: take words after 'remove task'
-                    parts = re.split(r"remove task|delete task", t, maxsplit=1)
-                    if len(parts) > 1:
-                        title = parts[1].strip()
-                if title:
-                    for i,tsk in enumerate(state.tasks):
-                        if title.lower() in tsk.get('title','').lower():
-                            removed = state.tasks.pop(i)
-                            break
+                # Try to extract title from after the command
+                words = t.split()
+                cmd_words = ['remove', 'delete', 'clear', 'get rid of']
+                start_idx = None
+                for i, word in enumerate(words):
+                    if word in cmd_words:
+                        start_idx = i + 1
+                        break
+                if start_idx and start_idx < len(words):
+                    potential_title = ' '.join(words[start_idx:])
+                    if 'task' not in potential_title and 'todo' not in potential_title:
+                        for i, tsk in enumerate(state.tasks):
+                            if potential_title.lower() in tsk.get('title', '').lower():
+                                removed = state.tasks.pop(i)
+                                break
+            
             if removed:
                 save_state_to_disk()
                 reply = f"Removed task: {removed.get('title')}"
                 action = {'type': 'removed_task', 'task': removed}
             else:
                 reply = "Could not find the task to remove. Please specify the task id or exact title."
-        # Add task with optional difficulty/time: "add task <title> difficulty high time 20"
-        elif 'add task' in t or t.startswith('create task') or t.startswith('new task'):
-            # Try to parse difficulty and time (minutes)
-            diff_match = re.search(r"difficulty\s+(low|medium|high)", t)
-            time_match = re.search(r"(time|for)\s+(\d{1,3})\s*(minutes|minute|mins|min)", t)
-            title = transcript
-            for kw in ['add task', 'create task', 'new task']:
+        
+        # Add task - more flexible patterns
+        elif re.search(r"\b(add|create|make|new).{0,40}(task|todo|item)\b", t):
+            # Extract difficulty
+            diff_match = re.search(r"\b(difficulty|level).{0,5}(low|medium|easy|hard|high)\b", t, re.I)
+            # Extract time
+            time_match = re.search(r"\b(for|duration|time).{0,5}(\d{1,3})\s*(minutes|minute|mins|min|hours|hour|hrs)\b", t, re.I)
+            
+            # Extract title - look for content after keywords up to difficulty/time indicators
+            title = ""
+            add_keywords = ['add task', 'create task', 'make task', 'new task', 'add todo', 'create todo']
+            for kw in add_keywords:
                 if kw in t:
                     idx = t.find(kw)
+                    # Extract everything after keyword
                     candidate = transcript[idx+len(kw):].strip()
                     if candidate:
-                        title = candidate
-                    break
-            # remove parsed phrases from title
-            if diff_match:
-                title = re.sub(diff_match.group(0), '', title, flags=re.I).strip()
-            if time_match:
-                title = re.sub(time_match.group(0), '', title, flags=re.I).strip()
-
+                        # Remove difficulty and time phrases
+                        if diff_match:
+                            candidate = re.sub(diff_match.group(0), '', candidate, flags=re.I).strip()
+                        if time_match:
+                            candidate = re.sub(time_match.group(0), '', candidate, flags=re.I).strip()
+                        # Remove common filler words
+                        candidate = re.sub(r'\b(please|could you|would you|can you|I need to)\b', '', candidate, flags=re.I).strip()
+                        if candidate:
+                            title = candidate
+                            break
+            
             if not title:
-                title = 'Quick task'
-
-            difficulty = diff_match.group(1) if diff_match else 'medium'
-            duration_minutes = int(time_match.group(2)) if time_match else None
-
-            # create basic subtasks depending on difficulty
+                # Fallback: try to get text after the last keyword
+                for word in ['called', 'named', 'titled', 'about', 'for']:
+                    if word in t:
+                        parts = t.split(word, 1)
+                        if len(parts) > 1:
+                            title = parts[1].strip()
+                            # Clean up title
+                            for phrase in ['with difficulty', 'for minutes', 'difficulty', 'duration']:
+                                title = title.split(phrase)[0].strip()
+                            break
+            
+            if not title:
+                title = 'New task'
+            
+            difficulty = diff_match.group(2).lower() if diff_match else 'medium'
+            # Normalize difficulty levels
+            if difficulty in ['easy', 'low']:
+                difficulty = 'low'
+            elif difficulty in ['hard', 'high']:
+                difficulty = 'high'
+            else:
+                difficulty = 'medium'
+            
+            duration_minutes = None
+            if time_match:
+                v = int(time_match.group(2))
+                unit = time_match.group(3)
+                if 'hour' in unit:
+                    duration_minutes = v * 60
+                else:
+                    duration_minutes = v
+            
+            # Create subtasks based on difficulty
             if difficulty == 'high':
                 subtasks = [
                     {"id": 1, "text": "Plan micro-steps", "completed": False, "duration": 10},
@@ -646,7 +702,7 @@ def voice_command():
                     {"id": 2, "text": "Focused work", "completed": False, "duration": 20},
                     {"id": 3, "text": "Wrap up", "completed": False, "duration": 10}
                 ]
-
+            
             new_task = {
                 "id": len(state.tasks) + 1,
                 "title": title,
@@ -659,41 +715,61 @@ def voice_command():
             state.tasks.append(new_task)
             reply = f"Added task: {title} (difficulty: {difficulty})"
             action = {'type': 'add_task', 'task': new_task}
-            # If user provided a time, start a reminder timer
             if new_task.get('duration_minutes'):
                 start_task_timer(new_task['id'], new_task['duration_minutes'])
-        # Add schedule: "add schedule <title> at 3pm for 30 minutes"
-        elif 'add schedule' in t or t.startswith('create schedule'):
-            time_match = re.search(r"at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?", t)
-            dur_match = re.search(r"for\s+(\d{1,3})\s*(minutes|minute|mins|min|hours|hour|hrs)", t)
+        
+        # Add schedule - more flexible patterns
+        elif re.search(r"\b(schedule|plan|calendar).{0,40}(add|create|make|set up)\b", t) or re.search(r"\b(add|create|make|set up).{0,40}(schedule|plan|appointment|event)\b", t):
+            time_match = re.search(r"\b(at|around|by)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm|a\.m|p\.m)?\b", t, re.I)
+            dur_match = re.search(r"\b(for|duration|length).{0,5}(\d{1,3})\s*(minutes|minute|mins|min|hours|hour|hrs)\b", t, re.I)
+            date_match = re.search(r"\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", t, re.I)
+            
+            # Extract title
             title = transcript
-            for kw in ['add schedule', 'create schedule']:
+            schedule_keywords = ['add schedule', 'create schedule', 'make schedule', 'set up schedule', 
+                               'schedule', 'plan', 'calendar event']
+            for kw in schedule_keywords:
                 if kw in t:
                     idx = t.find(kw)
                     candidate = transcript[idx+len(kw):].strip()
                     if candidate:
                         title = candidate
-                    break
+                        break
+            
+            # Clean up title
             if time_match:
-                hour = int(time_match.group(1))
-                minute = int(time_match.group(2) or 0)
-                ampm = (time_match.group(3) or '').lower()
-                if ampm == 'pm' and hour < 12: hour += 12
-                if ampm == 'am' and hour == 12: hour = 0
+                title = re.sub(time_match.group(0), '', title, flags=re.I).strip()
+            if dur_match:
+                title = re.sub(dur_match.group(0), '', title, flags=re.I).strip()
+            if date_match:
+                title = re.sub(date_match.group(0), '', title, flags=re.I).strip()
+            
+            if not title or len(title) < 2:
+                title = "Scheduled activity"
+            
+            # Parse time
+            sched_time = None
+            if time_match:
+                hour = int(time_match.group(2))
+                minute = int(time_match.group(3) or 0)
+                ampm = (time_match.group(4) or '').lower()
+                if 'pm' in ampm and hour < 12:
+                    hour += 12
+                if 'am' in ampm and hour == 12:
+                    hour = 0
                 sched_time = f"{hour:02d}:{minute:02d}"
-            else:
-                sched_time = None
+            
+            # Parse duration
             duration = None
             if dur_match:
-                v = int(dur_match.group(1))
-                unit = dur_match.group(2)
+                v = int(dur_match.group(2))
+                unit = dur_match.group(3)
                 if 'hour' in unit:
                     duration = v * 60
                 else:
                     duration = v
-            # Add to a simple schedule list (re-using tasks structure)
-            sched_entry = {"time": sched_time or 'ASAP', "title": title, "duration": duration or 30}
-            # For simplicity, append to tasks as a scheduled todo
+            
+            # Add to tasks as a scheduled todo
             new_task = {
                 "id": len(state.tasks) + 1,
                 "title": title,
@@ -701,39 +777,211 @@ def voice_command():
                 "total": 1,
                 "subtasks": [{"id":1, "text": title, "completed": False, "duration": duration or 30}],
                 "scheduled_time": sched_time,
-                "duration_minutes": duration or 30
+                "duration_minutes": duration or 30,
+                "is_scheduled": True
             }
             state.tasks.append(new_task)
-            reply = f"Scheduled {title} at {sched_time or 'ASAP'} for {new_task['duration_minutes']} minutes."
-            action = {'type': 'add_schedule', 'entry': sched_entry}
+            reply = f"Scheduled '{title}' at {sched_time or 'ASAP'} for {new_task['duration_minutes']} minutes."
+            action = {'type': 'add_schedule', 'entry': {"time": sched_time, "title": title, "duration": duration or 30}}
             start_task_timer(new_task['id'], new_task['duration_minutes'])
-
-        # Suggest dopamine activity (require suggest/recommend near break/dopamine)
-        elif re.search(r"\b(suggest|recommend|give me)\b.{0,40}\b(break|dopamine|pause)\b", t) or re.search(r"\bgive me a break\b", t):
-            suggestions = ["Take a 2-minute dance break.", "Have a glass of water.", "Do 5 jumping jacks.", "Give your pet some love."]
+        
+        # Dopamine/break suggestions
+        elif re.search(r"\b(suggest|recommend|give me|I need).{0,40}(break|pause|rest|dopamine|motivation|energy)\b", t) or re.search(r"\b(break|pause|rest).{0,40}(suggestion|idea|recommendation)\b", t):
+            suggestions = [
+                "Take a 2-minute dance break with your favorite song!",
+                "Do 5 jumping jacks for a quick energy boost.",
+                "Drink a glass of water and stretch your arms.",
+                "Stand up and walk to the window for 30 seconds.",
+                "Take 3 deep breaths to reset your focus."
+            ]
+            import random
             s = random.choice(suggestions)
             reply = f"Suggestion: {s}"
             action = {'type': 'suggest_dopamine', 'suggestion': s}
-
-        # Query focus — require interrogative or 'tell' near 'focus' to avoid accidental triggers
-        elif re.search(r"\b(tell me|what(?:'s| is)|how am i|how's|current|show me|do i have)\b.{0,40}\bfocus\b", t) or re.search(r"\bfocus\b.{0,40}\b(tell me|what(?:'s| is)|how am i|how's|current|show me)\b", t):
+        
+        # Query focus - more flexible patterns
+        elif re.search(r"\b(how.{0,5}focus|what.{0,5}focus|current focus|focus level|focus score)\b", t) or re.search(r"\b(tell me|show me|what is).{0,20}focus\b", t):
             reply = f"Your current focus is {state.focus_score} percent."
             action = {'type': 'report_focus', 'value': state.focus_score}
-        # Toggle dyslexic font
-        elif 'dyslexic' in t or 'dyslexia' in t:
-            if 'enable' in t or 'turn on' in t or 'on' in t:
+        
+        # Toggle dyslexia font
+        elif re.search(r"\b(dyslexic|dyslexia).{0,20}(font|text|type)\b", t):
+            if re.search(r"\b(enable|turn on|activate|use|on)\b", t):
                 state.settings['dyslexia_font'] = True
-                reply = 'Dyslexic friendly font enabled.'
-            else:
+                reply = 'Dyslexia-friendly font enabled.'
+            elif re.search(r"\b(disable|turn off|deactivate|stop|off)\b", t):
                 state.settings['dyslexia_font'] = False
-                reply = 'Dyslexic friendly font disabled.'
+                reply = 'Dyslexia-friendly font disabled.'
+            else:
+                # Toggle if not specified
+                state.settings['dyslexia_font'] = not state.settings['dyslexia_font']
+                status = "enabled" if state.settings['dyslexia_font'] else "disabled"
+                reply = f'Dyslexia-friendly font {status}.'
             action = {'type': 'setting', 'name': 'dyslexia_font', 'value': state.settings['dyslexia_font']}
+        
+        # Toggle dark mode
+        elif re.search(r"\b(dark|night).{0,10}mode\b", t):
+            if re.search(r"\b(enable|turn on|activate|use|on|switch to)\b", t):
+                state.settings['dark_mode'] = True
+                reply = 'Dark mode enabled.'
+            elif re.search(r"\b(disable|turn off|deactivate|stop|off|switch from)\b", t):
+                state.settings['dark_mode'] = False
+                reply = 'Dark mode disabled.'
+            else:
+                state.settings['dark_mode'] = not state.settings['dark_mode']
+                status = "enabled" if state.settings['dark_mode'] else "disabled"
+                reply = f'Dark mode {status}.'
+            action = {'type': 'setting', 'name': 'dark_mode', 'value': state.settings['dark_mode']}
+        
+        # Change buddy persona
+        elif re.search(r"\b(buddy|assistant|companion|helper).{0,20}(persona|character|type|style)\b", t):
+            personas = ["Friendly Peer", "Gentle Mentor", "Motivational Coach"]
+            for persona in personas:
+                if persona.lower() in t:
+                    state.settings['buddy_persona'] = persona
+                    reply = f'Buddy persona changed to {persona}.'
+                    action = {'type': 'setting', 'name': 'buddy_persona', 'value': persona}
+                    break
+            else:
+                # If no specific persona mentioned, list options
+                reply = f"I can set buddy persona to: {', '.join(personas)}. Please specify which one."
+        
+        # Change primary language
+        elif re.search(r"\b(language|speak|talk).{0,20}(change|set|switch|use)\b", t) or re.search(r"\b(speak|talk).{0,10}(english|urdu|mixed)\b", t):
+            languages = ["English", "Urdu", "Mixed"]
+            for lang in languages:
+                if lang.lower() in t:
+                    state.settings['language'] = lang
+                    reply = f'Primary language changed to {lang}.'
+                    action = {'type': 'setting', 'name': 'language', 'value': lang}
+                    break
+            else:
+                # If no specific language mentioned, list options
+                reply = f"I can set language to: {', '.join(languages)}. Please specify which one."
+        
+        # Toggle microphone access
+        elif re.search(r"\b(microphone|mic).{0,20}(access|permission)\b", t):
+            if re.search(r"\b(enable|turn on|allow|grant|on)\b", t):
+                state.settings['camera_access'] = True
+                reply = 'Microphone access enabled.'
+            elif re.search(r"\b(disable|turn off|deny|revoke|off)\b", t):
+                state.settings['camera_access'] = False
+                reply = 'Microphone access disabled.'
+            else:
+                state.settings['camera_access'] = not state.settings['camera_access']
+                status = "enabled" if state.settings['camera_access'] else "disabled"
+                reply = f'Microphone access {status}.'
+            action = {'type': 'setting', 'name': 'camera_access', 'value': state.settings['camera_access']}
+        
+        # Toggle proactive interventions
+        elif re.search(r"\b(proactive|intervention|help|assistance).{0,20}(on|off|enable|disable)\b", t) or re.search(r"\b(remind|notify|alert).{0,20}me\b", t):
+            if re.search(r"\b(enable|turn on|activate|yes|on)\b", t):
+                state.settings['proactive_interventions'] = True
+                reply = 'Proactive interventions enabled. I will remind you when focus drops.'
+            elif re.search(r"\b(disable|turn off|deactivate|no|off)\b", t):
+                state.settings['proactive_interventions'] = False
+                reply = 'Proactive interventions disabled.'
+            else:
+                state.settings['proactive_interventions'] = not state.settings['proactive_interventions']
+                status = "enabled" if state.settings['proactive_interventions'] else "disabled"
+                reply = f'Proactive interventions {status}.'
+            action = {'type': 'setting', 'name': 'proactive_interventions', 'value': state.settings['proactive_interventions']}
+        
+        # Change color contrast
+        elif re.search(r"\b(color|contrast|brightness).{0,20}(change|set|adjust|increase|decrease)\b", t):
+            contrasts = ["Standard", "High", "Maximum"]
+            matched = False
+            
+            # First check for exact contrast names
+            for contrast in contrasts:
+                if contrast.lower() in t:
+                    state.settings['color_contrast'] = contrast
+                    reply = f'Color contrast set to {contrast}.'
+                    action = {'type': 'setting', 'name': 'color_contrast', 'value': contrast}
+                    matched = True
+                    break
+            
+            # If no exact match, check for keywords
+            if not matched:
+                if re.search(r"\b(high|higher|increase|more)\b", t):
+                    state.settings['color_contrast'] = "High"
+                    reply = 'Color contrast set to High.'
+                    action = {'type': 'setting', 'name': 'color_contrast', 'value': "High"}
+                elif re.search(r"\b(maximum|max|highest|extreme)\b", t):
+                    state.settings['color_contrast'] = "Maximum"
+                    reply = 'Color contrast set to Maximum.'
+                    action = {'type': 'setting', 'name': 'color_contrast', 'value': "Maximum"}
+                elif re.search(r"\b(standard|normal|default|medium)\b", t):
+                    state.settings['color_contrast'] = "Standard"
+                    reply = 'Color contrast set to Standard.'
+                    action = {'type': 'setting', 'name': 'color_contrast', 'value': "Standard"}
+                else:
+                    reply = f"I can set color contrast to: Standard, High, or Maximum. Please specify which level."
+        
+        # Toggle sidebar
+        elif re.search(r"\b(sidebar|navigation|menu).{0,20}(show|hide|toggle|visible)\b", t):
+            if re.search(r"\b(hide|close|remove|off)\b", t):
+                state.settings['hide_sidebar'] = True
+                reply = 'Sidebar hidden.'
+            elif re.search(r"\b(show|open|display|on)\b", t):
+                state.settings['hide_sidebar'] = False
+                reply = 'Sidebar shown.'
+            else:
+                state.settings['hide_sidebar'] = not state.settings['hide_sidebar']
+                status = "hidden" if state.settings['hide_sidebar'] else "shown"
+                reply = f'Sidebar {status}.'
+            action = {'type': 'setting', 'name': 'hide_sidebar', 'value': state.settings['hide_sidebar']}
+        
+        # Toggle color blind mode
+        elif re.search(r"\b(color.?blind|colorblind|color vision).{0,20}(mode|friendly|accessible)\b", t):
+            if re.search(r"\b(enable|turn on|activate|use|on)\b", t):
+                state.settings['color_blind_mode'] = True
+                reply = 'Color blind mode enabled.'
+            elif re.search(r"\b(disable|turn off|deactivate|stop|off)\b", t):
+                state.settings['color_blind_mode'] = False
+                reply = 'Color blind mode disabled.'
+            else:
+                state.settings['color_blind_mode'] = not state.settings['color_blind_mode']
+                status = "enabled" if state.settings['color_blind_mode'] else "disabled"
+                reply = f'Color blind mode {status}.'
+            action = {'type': 'setting', 'name': 'color_blind_mode', 'value': state.settings['color_blind_mode']}
+        
+        # Open different tabs/sections
+        elif re.search(r"\b(open|go to|show|view|navigate to).{0,15}(dashboard|home|main)\b", t):
+            reply = "Opening dashboard."
+            action = {'type': 'navigate', 'view': 'dashboard'}
+        elif re.search(r"\b(open|go to|show|view|navigate to).{0,15}(settings|preferences|options)\b", t):
+            reply = "Opening settings."
+            action = {'type': 'navigate', 'view': 'settings'}
+        elif re.search(r"\b(open|go to|show|view|navigate to).{0,15}(analytics|insights|stats|statistics|reports)\b", t):
+            reply = "Opening analytics."
+            action = {'type': 'navigate', 'view': 'analytics'}
+        elif re.search(r"\b(open|go to|show|view|navigate to).{0,15}(schedule|calendar|planner|timeline)\b", t):
+            reply = "Opening schedule."
+            action = {'type': 'navigate', 'view': 'schedule'}
+        
+        # General help or unknown command
+        elif re.search(r"\b(help|what can you do|commands|options|capabilities)\b", t):
+            reply = "I can help you with: turning camera on/off, adding/removing tasks, scheduling, changing settings (dark mode, language, etc.), checking focus, and navigating between dashboard, settings, analytics, and schedule tabs. Just tell me what you need!"
+        
         else:
-            # generic echo
-            reply = "I heard: '" + transcript + "'. I can open/close camera, add tasks, or report focus."
+            # Generic echo with encouragement
+            replies = [
+                f"I heard: '{transcript}'. You can ask me to control camera, manage tasks, change settings, or check your focus.",
+                f"Got it: '{transcript}'. Need help with camera, tasks, or settings?",
+                f"'{transcript}' - I'm here to help with focus tracking and task management!"
+            ]
+            import random
+            reply = random.choice(replies)
+
+    # Save settings if they were changed
+    if action.get('type') == 'setting':
+        try:
+            save_state_to_disk()
+        except Exception:
+            pass
 
     return jsonify({'reply': reply, 'action': action})
-
 
 @app.route('/api/remove_task', methods=['POST'])
 def remove_task():
