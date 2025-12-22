@@ -1427,8 +1427,14 @@
                 <div class="header">
                     <h1 id="greeting-prefix">Good <span id="greeting"></span>, Friend</h1>
                     <p id="ready-text">Ready to conquer your tasks today?</p>
-                    <div class="privacy-badge" id="privacy-badge" style="display: none;">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Privacy Mode: Local Processing Only
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="privacy-badge" id="privacy-badge" style="display: none;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Privacy Mode: Local Processing Only
+                        </div>
+                        <button onclick="openVoiceCommandsModal()" style="padding: 8px 16px; background: rgba(94, 196, 169, 0.1); border: 1px solid rgba(94, 196, 169, 0.3); border-radius: 8px; color: #5ec4a9; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V6a3 3 0 1 0-6 0v5c0 1.66 1.34 3 3 3Zm5-3h-1a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 17 11Z"/></svg>
+                            Voice Commands
+                        </button>
                     </div>
                     <!-- camera-notice removed; feedback displayed in Settings page -->
                 </div>
@@ -3500,7 +3506,121 @@
             speakMessage(message);
         }
 
+        function openVoiceCommandsModal() {
+            document.getElementById('voice-commands-modal').classList.add('active');
+        }
+
+        function closeVoiceCommandsModal() {
+            document.getElementById('voice-commands-modal').classList.remove('active');
+        }
+
         window.onload = init;
     </script>
+
+    <!-- Voice Commands Modal -->
+    <div class="modal-backdrop" id="voice-commands-modal">
+        <div class="modal" style="max-width: 750px; max-height: 85vh; overflow-y: auto;">
+            <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V6a3 3 0 1 0-6 0v5c0 1.66 1.34 3 3 3Zm5-3h-1a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 17 11Z"/></svg>
+                Voice Commands Reference
+            </h2>
+            <p style="color: #6e6e73; margin-bottom: 24px; font-size: 14px;">Say these commands to control FocusFlow with your voice</p>
+
+            <div style="margin-top: 20px;">
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                    Camera Control
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Turn on camera" / "Enable camera"</li>
+                    <li>• "Turn off camera" / "Disable camera"</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+                    Task Management
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Add task <strong>[task name]</strong>"</li>
+                    <li>• "Create task <strong>[task name]</strong> with difficulty <strong>[low/medium/high]</strong>"</li>
+                    <li>• "Add task <strong>[task name]</strong> for <strong>[X]</strong> minutes"</li>
+                    <li>• "Remove task <strong>[task name]</strong>" / "Delete task <strong>[ID]</strong>"</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+                    Scheduling
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Schedule <strong>[activity]</strong> at <strong>[time]</strong>"</li>
+                    <li>• "Add schedule <strong>[event]</strong> for <strong>[X]</strong> minutes"</li>
+                    <li>• "Plan <strong>[activity]</strong> tomorrow at <strong>[time]</strong>"</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    Focus & Breaks
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "What's my focus?" / "Current focus level"</li>
+                    <li>• "Suggest a break" / "I need a dopamine boost"</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm0-3a1 1 0 0 1 .95.68l.5 1.54a6.04 6.04 0 0 1 1.58.92l1.62-.47a1 1 0 0 1 1.2.65l.5 1.54a1 1 0 0 1-.24 1.02l-1.22 1.2c.07.34.11.69.11 1.06s-.04.72-.11 1.06l1.22 1.2a1 1 0 0 1 .24 1.02l-.5 1.54a1 1 0 0 1-1.2.65l-1.62-.47a6.04 6.04 0 0 1-1.58.92l-.5 1.54a1 1 0 0 1-.95.68h-1a1 1 0 0 1-.95-.68l-.5-1.54a6.04 6.04 0 0 1-1.58-.92l-1.62.47a1 1 0 0 1-1.2-.65l-.5-1.54a1 1 0 0 1 .24-1.02l1.22-1.2A5.98 5.98 0 0 1 6 12c0-.36.04-.72.11-1.06l-1.22-1.2a1 1 0 0 1-.24-1.02l.5-1.54a1 1 0 0 1 1.2-.65l1.62.47c.48-.37 1-.69 1.58-.92l.5-1.54A1 1 0 0 1 11 5.5h1Z"/></svg>
+                    Settings Control
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Enable dark mode" / "Disable dark mode"</li>
+                    <li>• "Turn on dyslexia font" / "Turn off dyslexia font"</li>
+                    <li>• "Enable color blind mode" / "Disable color blind mode"</li>
+                    <li>• "Hide sidebar" / "Show sidebar"</li>
+                    <li>• "Set contrast to <strong>[Standard/High/Maximum]</strong>"</li>
+                    <li>• "Change language to <strong>[English/Urdu/Mixed]</strong>"</li>
+                    <li>• "Set buddy persona to <strong>[Friendly Peer/Gentle Mentor/Motivational Coach]</strong>"</li>
+                    <li>• "Enable proactive interventions" / "Disable proactive interventions"</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V6a3 3 0 1 0-6 0v5c0 1.66 1.34 3 3 3Zm5-3h-1a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 17 11Z"/></svg>
+                    Voice Features
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Activate wake word" - Enable hands-free voice control</li>
+                    <li>• "Deactivate wake word" - Require mic button press</li>
+                    <li>• Say <strong>"Hey Focus"</strong> when wake word is active to give commands</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-10.5Z"/></svg>
+                    Navigation
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Go to dashboard" / "Open dashboard"</li>
+                    <li>• "Go to analytics" / "Show analytics"</li>
+                    <li>• "Go to schedule" / "Open schedule"</li>
+                    <li>• "Go to settings" / "Open settings"</li>
+                </ul>
+
+                <h3 style="color: #5ec4a9; margin-bottom: 12px; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+                    Help
+                </h3>
+                <ul style="list-style: none; padding-left: 0; margin-bottom: 24px; line-height: 2;">
+                    <li>• "Help" / "What can you do?" / "Show commands"</li>
+                </ul>
+
+                <div style="background: rgba(94, 196, 169, 0.1); border-left: 3px solid #5ec4a9; padding: 14px; margin-top: 24px; border-radius: 8px;">
+                    <strong style="color: #5ec4a9;">💡 Pro Tip:</strong> You can combine commands naturally! For example: <br>
+                    <em style="color: #6e6e73; margin-top: 6px; display: block;">"Add task study math with high difficulty for 45 minutes"</em>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 24px;">
+                <button class="modal-btn modal-btn-primary" onclick="closeVoiceCommandsModal()">Got it!</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
