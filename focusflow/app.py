@@ -49,6 +49,7 @@ class FocusFlowState:
     def __init__(self):
         self.camera_active = False
         self.microphone_active = False
+        self.wake_word_active = False
         self.focus_score = 100
         self.fidget_score_global = 0.0
         self.predictor = FocusPredictor()
@@ -248,6 +249,7 @@ def get_state():
             'focus_score': state.focus_score,
             'camera_active': state.camera_active,
             'microphone_active': state.microphone_active,
+            'wake_word_active': state.wake_word_active,
             'tasks': state.tasks,
             'analytics': state.analytics,
             'settings': state.settings
@@ -318,6 +320,12 @@ def toggle_microphone():
     with state.data_lock:
         state.microphone_active = not state.microphone_active
     return jsonify({'microphone_active': state.microphone_active})
+
+@app.route('/api/toggle_wake_word', methods=['POST'])
+def toggle_wake_word():
+    with state.data_lock:
+        state.wake_word_active = not state.wake_word_active
+    return jsonify({'wake_word_active': state.wake_word_active})
 
 @app.route('/video_feed')
 def video_feed():

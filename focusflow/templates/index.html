@@ -1159,6 +1159,16 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="setting-item">
+                                    <div>
+                                        <strong>Wake Word ("Hey Focus")</strong>
+                                        <p style="font-size: 12px; color: #6e6e73; margin-top: 4px;">
+                                            Always listen for voice commands without pressing the mic button.
+                                        </p>
+                                    </div>
+                                    <div class="toggle-switch" id="wake-word-toggle" onclick="toggleWakeWord()"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1292,6 +1302,7 @@
             currentView: 'dashboard',
             cameraActive: false,
             microphoneActive: false,
+            wakeWordActive: false,
             focusScore: 0,
             tasks: [],
             schedule: [],
@@ -1446,6 +1457,7 @@
                     focusScore: data.focus_score || 0,
                     cameraActive: data.camera_active || false,
                     microphoneActive: data.microphone_active || false,
+                    wakeWordActive: data.wake_word_active || false,
                     tasks: data.tasks || [],
                     analytics: data.analytics || {},
                     settings: { ...appState.settings, ...data.settings }
@@ -1515,6 +1527,10 @@
             const micSettingsToggle = document.getElementById('mic-access-toggle');
             if (micButton) micButton.classList.toggle('active', !!appState.microphoneActive);
             if (micSettingsToggle) micSettingsToggle.classList.toggle('active', !!appState.microphoneActive);
+
+            // Sync wake word toggle
+            const wakeWordToggle = document.getElementById('wake-word-toggle');
+            if (wakeWordToggle) wakeWordToggle.classList.toggle('active', !!appState.wakeWordActive);
 
             if (appState.analytics) {
                 const deepFocusEl = document.getElementById('deep-focus-score');
@@ -1803,6 +1819,185 @@
         showFeedback('Could not start speech recognition.', 'warning');
     }
 }
+        // Wake word continuous listening
+        let wakeWordRecognition = null;
+        let commandRecognition = null;
+        const WAKE_WORDS = ['hey focus', 'focus flow', 'hey focusflow'];
+
+        function startWakeWordListening() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                showFeedback('Speech recognition not supported', 'warning');
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            wakeWordRecognition = new SpeechRecognition();
+            wakeWordRecognition.lang = 'en-US';
+            wakeWordRecognition.continuous = true;
+            wakeWordRecognition.interimResults = true;
+
+            wakeWordRecognition.onresult = (event) => {
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript.toLowerCase().trim();
+                    console.log('Wake word listening:', transcript);
+                    
+                    // Check if any wake word is detected
+                    const wakeWordDetected = WAKE_WORDS.some(word => transcript.includes(word));
+                    
+                    if (wakeWordDetected && event.results[i].isFinal) {
+                        console.log('Wake word detected!');
+                        showFeedback('Listening for command...', 'success', 1500);
+                        // Stop wake word recognition temporarily
+                        wakeWordRecognition.stop();
+                        // Start command recognition
+                        startCommandListening();
+                    }
+                }
+            };
+
+            wakeWordRecognition.onerror = (e) => {
+                if (e.error !== 'no-speech') {
+                    console.error('Wake word recognition error:', e.error);
+                }
+                // Auto-restart on error (unless manually stopped)
+                if (appState.wakeWordActive && e.error !== 'aborted') {
+                    setTimeout(() => {
+                        if (appState.wakeWordActive) {
+                            try { wakeWordRecognition.start(); } catch (err) {}
+                        }
+                    }, 1000);
+                }
+            };
+
+            wakeWordRecognition.onend = () => {
+                // Auto-restart if still active
+                if (appState.wakeWordActive) {
+                    setTimeout(() => {
+                        if (appState.wakeWordActive && !commandRecognition) {
+                            try { wakeWordRecognition.start(); } catch (err) {}
+                        }
+                    }, 100);
+                }
+            };
+
+            try {
+                wakeWordRecognition.start();
+                console.log('Wake word listening started');
+            } catch (e) {
+                console.error('Failed to start wake word listening:', e);
+            }
+        }
+
+        function stopWakeWordListening() {
+            if (wakeWordRecognition) {
+                try {
+                    wakeWordRecognition.stop();
+                    wakeWordRecognition = null;
+                } catch (e) {
+                    console.error('Error stopping wake word:', e);
+                }
+            }
+        }
+
+        function startCommandListening() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            commandRecognition = new SpeechRecognition();
+            commandRecognition.lang = appState.settings.language === 'Urdu' ? 'ur-PK' : 'en-US';
+            commandRecognition.interimResults = false;
+            commandRecognition.maxAlternatives = 1;
+
+            let heardCommand = false;
+
+            commandRecognition.onresult = async (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                transcript = transcript.trim();
+                console.log('Command:', transcript);
+                heardCommand = true;
+
+                if (!transcript) return;
+
+                const buddyEl = document.getElementById('buddy-message');
+                if (buddyEl) buddyEl.textContent = 'You: ' + transcript;
+
+                // Send to server
+                try {
+                    const resp = await fetch('/api/voice_command', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ transcript: transcript })
+                    });
+                    const data = await resp.json();
+                    const serverReply = data.reply || "I couldn't process that.";
+                    
+                    if (buddyEl) buddyEl.textContent = serverReply;
+                    speakMessage(serverReply);
+
+                    if (data.action) {
+                        handleServerAction(data.action);
+                    }
+                } catch (err) {
+                    console.error('Voice command error', err);
+                    showFeedback('Failed to send voice command', 'warning');
+                }
+            };
+
+            commandRecognition.onerror = (e) => {
+                console.error('Command recognition error:', e.error);
+            };
+
+            commandRecognition.onend = () => {
+                commandRecognition = null;
+                if (!heardCommand) {
+                    showFeedback('No command heard', 'warning', 1500);
+                }
+                // Restart wake word listening
+                if (appState.wakeWordActive) {
+                    setTimeout(() => {
+                        if (appState.wakeWordActive) {
+                            startWakeWordListening();
+                        }
+                    }, 500);
+                }
+            };
+
+            try {
+                commandRecognition.start();
+            } catch (e) {
+                console.error('Failed to start command recognition:', e);
+                // Restart wake word listening on failure
+                if (appState.wakeWordActive) {
+                    setTimeout(() => startWakeWordListening(), 500);
+                }
+            }
+        }
+
+        async function toggleWakeWord() {
+            try {
+                const response = await fetch('/api/toggle_wake_word', { method: 'POST' });
+                const data = await response.json();
+                appState.wakeWordActive = data.wake_word_active;
+                
+                const toggle = document.getElementById('wake-word-toggle');
+                if (toggle) {
+                    toggle.classList.toggle('active', appState.wakeWordActive);
+                }
+                
+                if (appState.wakeWordActive) {
+                    showFeedback('Wake word activated. Say "Hey Focus" to give commands.', 'success', 3000);
+                    startWakeWordListening();
+                } else {
+                    showFeedback('Wake word deactivated', 'success', 2000);
+                    stopWakeWordListening();
+                }
+            } catch (error) {
+                console.error('Error toggling wake word:', error);
+                showFeedback('Failed to toggle wake word', 'warning');
+            }
+        }
+
         async function checkBuddyMessages() {
             try {
                 const response = await fetch('/api/buddy_messages');
