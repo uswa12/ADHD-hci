@@ -881,6 +881,24 @@ def voice_command():
                 reply = f'Microphone access {status}.'
             action = {'type': 'setting', 'name': 'camera_access', 'value': state.settings['camera_access']}
         
+        # Toggle wake word
+        elif re.search(r"\b(wake word|wake up|voice activation|always listen)\b", t):
+            if re.search(r"\b(enable|turn on|activate|start|on)\b", t):
+                state.wake_word_active = True
+                reply = 'Wake word activated. Say "Hey Focus" to give commands without pressing the mic button.'
+                action = {'type': 'wake_word', 'value': True}
+            elif re.search(r"\b(disable|turn off|deactivate|stop|off)\b", t):
+                state.wake_word_active = False
+                reply = 'Wake word deactivated. Press the mic button to give commands.'
+                action = {'type': 'wake_word', 'value': False}
+            else:
+                state.wake_word_active = not state.wake_word_active
+                status = "activated" if state.wake_word_active else "deactivated"
+                reply = f'Wake word {status}.'
+                if state.wake_word_active:
+                    reply += ' Say "Hey Focus" to give commands.'
+                action = {'type': 'wake_word', 'value': state.wake_word_active}
+        
         # Toggle proactive interventions
         elif re.search(r"\b(proactive|intervention|help|assistance).{0,20}(on|off|enable|disable)\b", t) or re.search(r"\b(remind|notify|alert).{0,20}me\b", t):
             if re.search(r"\b(enable|turn on|activate|yes|on)\b", t):

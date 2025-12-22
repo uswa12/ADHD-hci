@@ -1847,6 +1847,18 @@
                     if (wakeWordDetected && event.results[i].isFinal) {
                         console.log('Wake word detected!');
                         showFeedback('Listening for command...', 'success', 1500);
+                        
+                        // Give audio feedback
+                        const responses = [
+                            'I am listening',
+                            'Yes, I am here',
+                            'What do you want me to do',
+                            'How can I help',
+                            'Ready'
+                        ];
+                        const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+                        speakMessage(randomResponse);
+                        
                         // Stop wake word recognition temporarily
                         wakeWordRecognition.stop();
                         // Start command recognition
@@ -2071,6 +2083,17 @@
         appState.tasks = appState.tasks.filter(t => t.id !== action.task.id);
         renderTasks();
         showFeedback(`Task "${action.task.title}" removed`, 'success', 2500);
+    } else if (action.type === 'wake_word') {
+        appState.wakeWordActive = action.value;
+        const wakeWordToggle = document.getElementById('wake-word-toggle');
+        if (wakeWordToggle) {
+            wakeWordToggle.classList.toggle('active', appState.wakeWordActive);
+        }
+        if (appState.wakeWordActive) {
+            startWakeWordListening();
+        } else {
+            stopWakeWordListening();
+        }
     }
 }
         function renderTasks() {
