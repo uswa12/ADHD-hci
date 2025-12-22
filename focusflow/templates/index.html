@@ -34,6 +34,8 @@
             padding: 24px;
             box-shadow: 2px 0 8px rgba(0,0,0,0.05);
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
 
         .logo {
@@ -213,12 +215,16 @@
         .focus-buddy.compact .mic-button {
             width: 32px;
             height: 32px;
+            flex: 0 0 32px;
         }
         .focus-buddy.compact .chat-input input {
             padding: 10px 12px;
             border-radius: 20px;
             font-size: 13px;
+            min-width: 0;
+            flex: 1 1 auto;
         }
+        .focus-buddy.compact .chat-input { gap: 8px; }
 
         .buddy-avatar {
             width: 48px;
@@ -272,8 +278,8 @@
         }
 
         .mic-button {
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border: none;
             background: #5ec4a9;
             color: white;
@@ -293,6 +299,9 @@
             background: #ef4444;
             animation: pulse 1.5s infinite;
         }
+
+        /* Pin sidebar Focus Buddy to bottom when visible */
+        #sidebar-focus-buddy { margin-top: auto; }
 
         @keyframes pulse {
             0%, 100% { transform: scale(1); }
@@ -919,7 +928,7 @@
                 </div>
 
                 <div class="chat-input">
-                    <button class="mic-button" id="mic-toggle" onclick="startVoiceCapture()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M12 14c1.66 0 3-1.34 3-3V5a3 3 0 1 0-6 0v6c0 1.66 1.34 3 3 3zm5-3h-2a5 5 0 1 1-10 0H3c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92z"/></svg></button>
+                    <button class="mic-button" id="mic-toggle" onclick="startVoiceCapture()"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block;"><path d="M12 14c1.66 0 3-1.34 3-3V6a3 3 0 1 0-6 0v5c0 1.66 1.34 3 3 3Zm5-3h-1a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 17 11Z"/></svg></button>
                     <input type="text" placeholder="Type or speak to Buddy..." id="chat-input" onkeypress="handleChatInput(event)">
                     <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
                 </div>
@@ -933,7 +942,7 @@
                 <div class="header">
                     <h1 id="greeting-prefix">Good <span id="greeting"></span>, Friend</h1>
                     <p id="ready-text">Ready to conquer your tasks today?</p>
-                    <div class="privacy-badge" id="privacy-badge">
+                    <div class="privacy-badge" id="privacy-badge" style="display: none;">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Privacy Mode: Local Processing Only
                     </div>
                     <!-- camera-notice removed; feedback displayed in Settings page -->
@@ -955,7 +964,7 @@
                                 <span id="webcam-status">Webcam inactive</span>. Monitoring gaze & posture.
                             </p>
                             <button class="mic-button" id="camera-toggle" onclick="toggleCamera()">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display: inline-block;"><path d="M20 5h-3.17l-1.41-1.41A2 2 0 0 0 14 3H10a2 2 0 0 0-1.41.59L7.17 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block;"><path d="M20 5h-3.17l-1.41-1.41A2 2 0 0 0 14 3H10a2 2 0 0 0-1.41.59L7.17 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
                             </button>
                             <div id="video-container" class="video-feed hidden">
                                 <img id="video-feed" src="/video_feed" alt="Video Feed">
@@ -978,7 +987,7 @@
                             </div>
 
                             <div class="chat-input">
-                                <button class="mic-button" id="mic-toggle-db" onclick="startVoiceCapture()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M12 14c1.66 0 3-1.34 3-3V5a3 3 0 1 0-6 0v6c0 1.66 1.34 3 3 3zm5-3h-2a5 5 0 1 1-10 0H3c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92z"/></svg></button>
+                                <button class="mic-button" id="mic-toggle-db" onclick="startVoiceCapture()"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block;"><path d="M12 14c1.66 0 3-1.34 3-3V6a3 3 0 1 0-6 0v5c0 1.66 1.34 3 3 3Zm5-3h-1a5 5 0 1 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 17 11Z"/></svg></button>
                                 <input type="text" placeholder="Type or speak to Buddy..." id="chat-input-db" onkeypress="handleChatInput(event)">
                                 <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
                             </div>
