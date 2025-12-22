@@ -2324,7 +2324,7 @@
 
                 if (deepFocusEl) deepFocusEl.textContent = (appState.analytics.deep_focus_score || 78) + '%';
                 if (totalTimeEl) totalTimeEl.textContent = appState.analytics.total_focus_time || "4h 12m";
-                if (consistencyEl) consistencyEl.textContent = (appState.analytics.consistency || 85) + '%';
+                if (consistencyEl) consistencyEl.textContent = (appState.analytics.consistency ?? 85) + '%';
                 if (distractionsEl) distractionsEl.textContent = appState.analytics.distractions || 12;
 
                 if (appState.currentView === 'analytics') {
@@ -2348,7 +2348,7 @@
                 const a = appState.analytics;
                 const deep = Number(a.deep_focus_score || 0);
                 const time = a.total_focus_time || '0h 0m';
-                const cons = Number(a.consistency || 0);
+                const cons = Number(a.consistency ?? 85);
                 const dist = Number(a.distractions || 0);
                 const sources = a.distraction_sources || {};
                 const topSource = Object.keys(sources).sort((x,y) => (sources[y]||0) - (sources[x]||0))[0] || 'N/A';
