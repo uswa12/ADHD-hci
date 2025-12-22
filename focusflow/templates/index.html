@@ -1182,19 +1182,6 @@
         /* Hide sidebar */
         .sidebar.hidden { width: 0; padding: 0; overflow: hidden; display: none; }
 
-        /* Dark mode modal overrides */
-        body.dark-mode .modal { background: #0f1724; border-color: #1f2a3a; }
-        body.dark-mode .modal h2 { color: #e6eef6; }
-        body.dark-mode .modal h3 { color: #9fe3c9; }
-        body.dark-mode .modal p { color: #bcd7ef; }
-        body.dark-mode .modal li { color: #bcd7ef; }
-        body.dark-mode .modal strong { color: #e6eef6; }
-        body.dark-mode .modal em { color: #9fb7d6; }
-        body.dark-mode .modal .modal-subtitle { color: #9fb7d6; }
-        body.dark-mode #task-modal { background: #0f1724; border-color: #1f2a3a; }
-        body.dark-mode #task-modal h2 { color: #e6eef6; }
-        body.dark-mode #task-modal .modal-subtitle { color: #9fb7d6; }
-
         /* Toolbar dark toggle */
         .toolbar-button {
             display: inline-flex;
@@ -1242,6 +1229,42 @@
         }
 
         /* Add Task Modal */
+        .modal {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.16);
+            animation: slideUp 0.3s ease-out;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            color: #1d1d1f;
+        }
+
+        .modal h2 {
+            color: #1d1d1f;
+        }
+
+        .modal h3 {
+            color: #5ec4a9;
+        }
+
+        .modal p {
+            color: #6e6e73;
+        }
+
+        .modal li {
+            color: #1d1d1f;
+        }
+
+        .modal strong {
+            color: #1d1d1f;
+        }
+
+        .modal em {
+            color: #6e6e73;
+        }
+
         #task-modal {
             background: white;
             border-radius: 16px;
