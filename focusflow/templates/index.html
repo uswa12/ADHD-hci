@@ -1109,7 +1109,21 @@
 
         /* Color-blind friendly adjustments (high contrast but colorblind palette) */
         body.color-blind .dopamine-item { background: #e0f2ff; border-color: #0077b6; }
-        body.color-blind .progress-fill { background: #0077b6; }
+        body.color-blind .progress-fill {
+            background: linear-gradient(90deg, #0077b6, #00a0df);
+            box-shadow: 0 0 12px rgba(0, 119, 182, 0.35);
+        }
+        body.color-blind .metric-value { color: #0077b6; }
+        body.color-blind .metric-card { border-color: rgba(0, 119, 182, 0.25); }
+        body.color-blind .nav-item.active { color: #0077b6; border-left-color: #0077b6; }
+        body.color-blind .add-task-btn { color: #0077b6; }
+        body.color-blind .language-badge { background: rgba(0, 119, 182, 0.12); color: #0077b6; border-color: rgba(0, 119, 182, 0.25); }
+        
+        /* Color-blind + dark mode specific tweaks */
+        body.dark-mode.color-blind .metric-card { background: #0f1b2f; border-color: #1f2a3a; }
+        body.dark-mode.color-blind .metric-value { color: #7cc8ff; }
+        body.dark-mode.color-blind .insights-tip { border-left-color: #7cc8ff; }
+        body.dark-mode.color-blind .nav-item.active { color: #7cc8ff; }
 
         /* Hide sidebar */
         .sidebar.hidden { width: 0; padding: 0; overflow: hidden; display: none; }
@@ -3125,6 +3139,11 @@
                 window.focusChart.destroy();
             }
 
+            // Choose palette based on color-blind mode
+            const cb = !!(appState && appState.settings && appState.settings.color_blind_mode);
+            const lineColor = cb ? '#0077b6' : '#5ec4a9';
+            const fillColor = cb ? 'rgba(0, 119, 182, 0.25)' : 'rgba(94, 196, 169, 0.2)';
+
             window.focusChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -3132,8 +3151,8 @@
                     datasets: [{
                         label: 'Focus Score',
                         data: appState.focusHistory,
-                        borderColor: '#5ec4a9',
-                        backgroundColor: 'rgba(94, 196, 169, 0.2)',
+                        borderColor: lineColor,
+                        backgroundColor: fillColor,
                         tension: 0.4,
                         fill: true
                     }]
@@ -3165,7 +3184,13 @@
             container.innerHTML = '';
             Object.entries(sources).forEach(([source, count]) => {
                 const percentage = Math.round((count / total) * 100);
-                const colors = {
+                const cb = !!(appState && appState.settings && appState.settings.color_blind_mode);
+                const colors = cb ? {
+                    'Phone': '#0077b6',    // blue
+                    'Noise': '#ff8c42',    // orange
+                    'Daydream': '#2ca58d', // teal
+                    'Fidgeting': '#d81b60' // magenta
+                } : {
                     'Phone': '#ef4444',
                     'Noise': '#f59e0b',
                     'Daydream': '#8b5cf6',
@@ -3178,7 +3203,7 @@
                             <span style="font-weight: 600;">${percentage}%</span>
                         </div>
                         <div class="progress-bar">
-                            <div class="progress-fill" style="width: ${percentage}%; background: ${colors[source] || '#5ec4a9'};"></div>
+                            <div class="progress-fill" style="width: ${percentage}%; background: ${colors[source] || (cb ? '#0077b6' : '#5ec4a9')};"></div>
                         </div>
                     </div>
                 `;
@@ -3343,6 +3368,10 @@
                     const ls = document.getElementById('language-select'); if (ls) ls.value = appState.settings.language || 'English';
 
                     applyLanguage();
+
+                    // Re-render charts and dynamic visuals to apply palette changes
+                    try { renderFocusChart(); } catch(e) {}
+                    try { renderDistractionChart(); } catch(e) {}
         }
 
         function triggerBreak(activity) {
