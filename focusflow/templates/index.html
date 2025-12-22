@@ -913,7 +913,7 @@
             </nav>
 
             <!-- Focus Buddy (shown in sidebar for non-dashboard tabs) -->
-            <div class="card focus-buddy compact" id="sidebar-focus-buddy" style="margin-top: 16px; display: none;">
+            <div class="card focus-buddy compact" id="sidebar-focus-buddy" style="display: none;">
                 <div class="buddy-header">
                     <div class="buddy-avatar" aria-hidden="true">🤖</div>
                     <div class="buddy-info">
@@ -1698,7 +1698,43 @@
                     renderDistractionChart();
                     renderFocusChart();
                 }
+
+                // Update Activity Insights on Dashboard
+                if (appState.currentView === 'dashboard') {
+                    updateActivityInsights();
+                }
             }
+        }
+
+        function updateActivityInsights() {
+            try {
+                const descEl = document.getElementById('activity-insights-desc');
+                if (!descEl || !appState.analytics) return;
+
+                const a = appState.analytics;
+                const deep = Number(a.deep_focus_score || 0);
+                const time = a.total_focus_time || '0h 0m';
+                const cons = Number(a.consistency || 0);
+                const dist = Number(a.distractions || 0);
+                const sources = a.distraction_sources || {};
+                const topSource = Object.keys(sources).sort((x,y) => (sources[y]||0) - (sources[x]||0))[0] || '—';
+                const peak = a.peak_insight_time || '—';
+
+                let tip = '';
+                if (cons < 70 || dist >= 5) {
+                    tip = 'Tip: Take a 2‑min stretch break and refocus on one subtask.';
+                } else if (deep >= 80) {
+                    tip = 'Great flow! Queue a challenging subtask while focus is high.';
+                } else {
+                    tip = 'Keep a steady pace. Small wins add up.';
+                }
+
+                descEl.innerHTML = `
+                    <span style="display:block; margin-bottom:6px;">Deep focus <strong>${deep}%</strong> • Total <strong>${time}</strong> • Consistency <strong>${cons}%</strong></span>
+                    <span style="display:block; margin-bottom:6px;">Distractions <strong>${dist}</strong> (Top: <strong>${topSource}</strong>) • Peak window: <strong>${peak}</strong></span>
+                    <span>${tip}</span>
+                `;
+            } catch (e) { console.warn('updateActivityInsights failed', e); }
         }
 
         function speakMessage(text) {
