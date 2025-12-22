@@ -1179,6 +1179,103 @@
         body.dark-mode.cb-tritanopia .nav-item.active { color: #ff8fb1; }
         body.dark-mode.cb-tritanopia .dopamine-item { border-color: #5b1634; }
 
+        /* High Contrast Mode */
+        body.high-contrast {
+            --text-primary: #000;
+            --text-secondary: #333;
+            --bg-primary: #fff;
+        }
+
+        body.high-contrast .card,
+        body.high-contrast .modal {
+            border: 2px solid #000;
+        }
+
+        body.high-contrast h1,
+        body.high-contrast h2,
+        body.high-contrast h3,
+        body.high-contrast p,
+        body.high-contrast .nav-label,
+        body.high-contrast .stat-label,
+        body.high-contrast .metric-label {
+            color: #000;
+            font-weight: 500;
+        }
+
+        body.high-contrast .nav-item {
+            border: 1px solid #000;
+        }
+
+        /* Maximum Contrast Mode */
+        body.maximum-contrast {
+            --text-primary: #000;
+            --text-secondary: #000;
+            --bg-primary: #fff;
+        }
+
+        body.maximum-contrast .card,
+        body.maximum-contrast .modal {
+            border: 3px solid #000;
+            box-shadow: 0 0 0 1px #000;
+        }
+
+        body.maximum-contrast h1,
+        body.maximum-contrast h2,
+        body.maximum-contrast h3,
+        body.maximum-contrast p,
+        body.maximum-contrast .nav-label,
+        body.maximum-contrast .stat-label,
+        body.maximum-contrast .metric-label,
+        body.maximum-contrast li {
+            color: #000;
+            font-weight: 600;
+        }
+
+        body.maximum-contrast .nav-item {
+            border: 2px solid #000;
+        }
+
+        body.maximum-contrast button {
+            border: 2px solid #000;
+        }
+
+        /* Dark mode high contrast */
+        body.dark-mode.high-contrast .card,
+        body.dark-mode.high-contrast .modal {
+            border: 2px solid #fff;
+            background: #000;
+        }
+
+        body.dark-mode.high-contrast h1,
+        body.dark-mode.high-contrast h2,
+        body.dark-mode.high-contrast h3,
+        body.dark-mode.high-contrast p,
+        body.dark-mode.high-contrast .nav-label,
+        body.dark-mode.high-contrast .stat-label {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        /* Dark mode maximum contrast */
+        body.dark-mode.maximum-contrast .card,
+        body.dark-mode.maximum-contrast .modal {
+            border: 3px solid #fff;
+            background: #000;
+            box-shadow: 0 0 0 1px #fff;
+        }
+
+        body.dark-mode.maximum-contrast h1,
+        body.dark-mode.maximum-contrast h2,
+        body.dark-mode.maximum-contrast h3,
+        body.dark-mode.maximum-contrast p,
+        body.dark-mode.maximum-contrast .nav-label,
+        body.dark-mode.maximum-contrast .stat-label,
+        body.dark-mode.maximum-contrast li {
+            color: #fff;
+            font-weight: 600;
+        }
+
+
         /* Hide sidebar */
         .sidebar.hidden { width: 0; padding: 0; overflow: hidden; display: none; }
 
@@ -1207,7 +1304,7 @@
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.45);
-            backdrop-filter: blur(4px);
+            backdrop-filter: blur(12px);
             z-index: 999;
             animation: fadeIn 0.2s ease-out;
         }

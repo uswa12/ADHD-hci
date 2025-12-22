@@ -6,7 +6,7 @@
     "color_contrast": "Maximum",
     "buddy_persona": "Friendly Peer",
     "language": "English",
-    "dark_mode": true,
+    "dark_mode": false,
     "color_blind_mode": false,
     "hide_sidebar": false,
     "camera_access": true,
