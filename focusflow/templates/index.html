@@ -372,6 +372,32 @@
             align-items: center;
             gap: 8px;
             font-size: 14px;
+            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        .add-task-btn:hover {
+            background: #e8f5f2;
+        }
+
+        #add-schedule-btn {
+            background: linear-gradient(135deg, rgba(94, 196, 169, 0.05) 0%, rgba(152, 216, 200, 0.05) 100%) !important;
+            border: 2px dashed #5ec4a9 !important;
+            transition: all 0.3s;
+            color: #5ec4a9;
+            font-weight: 600;
+        }
+
+        #add-schedule-btn:hover {
+            border-color: #4db396 !important;
+            background: linear-gradient(135deg, rgba(94, 196, 169, 0.1) 0%, rgba(152, 216, 200, 0.1) 100%) !important;
+            box-shadow: 0 4px 12px rgba(94, 196, 169, 0.2) !important;
+        }
+
+        #add-schedule-btn svg {
+            color: #5ec4a9;
         }
 
         .task-group {
@@ -451,17 +477,66 @@
         .activity-insights {
             margin-top: 24px;
             padding: 24px;
-            background: #fafafa;
-            border-radius: 12px;
+            background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(94, 196, 169, 0.2);
+            box-shadow: 0 4px 12px rgba(94, 196, 169, 0.08);
         }
 
         .activity-insights h4 {
             display: flex;
             align-items: center;
             gap: 8px;
+            color: #5ec4a9;
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .insights-metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #e8e8ed;
+            text-align: center;
+            transition: all 0.3s;
+        }
+
+        .metric-card:hover {
+            border-color: #5ec4a9;
+            box-shadow: 0 2px 6px rgba(94, 196, 169, 0.12);
+        }
+
+        .metric-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #5ec4a9;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .metric-label {
+            font-size: 11px;
             color: #6e6e73;
-            font-size: 14px;
-            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .insights-tip {
+            background: white;
+            border-left: 3px solid #5ec4a9;
+            padding: 12px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #1d1d1f;
+            line-height: 1.5;
         }
 
         /* Schedule View */
@@ -862,20 +937,157 @@
         }
         .toolbar-button.active { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.12); }
 
-        body.reduced-motion * {
-            animation: none !important;
-            transition: none !important;
+        /* Modal Backdrop */
+        .modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            animation: fadeIn 0.2s ease-out;
         }
 
-        body.high-contrast {
-            color: #000000 !important;
-            background: #FFFFFF !important;
+        .modal-backdrop.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        body.maximum-contrast {
-            color: #000000 !important;
-            background: #FFFFFF !important;
-            filter: contrast(200%);
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        /* Add Task Modal */
+        #task-modal {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+            animation: slideUp 0.3s ease-out;
+        }
+
+        #task-modal h2 {
+            font-size: 24px;
+            color: #1d1d1f;
+            margin-bottom: 8px;
+        }
+
+        #task-modal .modal-subtitle {
+            color: #6e6e73;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .modal-form-group {
+            margin-bottom: 20px;
+        }
+
+        .modal-form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1d1d1f;
+            font-size: 14px;
+        }
+
+        .modal-form-group input,
+        .modal-form-group textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #d5d5d7;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s;
+            box-sizing: border-box;
+        }
+
+        .modal-form-group input:focus,
+        .modal-form-group textarea:focus {
+            outline: none;
+            border-color: #5ec4a9;
+            box-shadow: 0 0 0 3px rgba(94, 196, 169, 0.1);
+        }
+
+        .modal-form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-difficulty {
+            display: flex;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .difficulty-option {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #d5d5d7;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+
+        .difficulty-option:hover {
+            border-color: #5ec4a9;
+            background: #f5fffe;
+        }
+
+        .difficulty-option.selected {
+            background: #5ec4a9;
+            color: white;
+            border-color: #5ec4a9;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 28px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .modal-btn-primary {
+            background: #5ec4a9;
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            background: #4db396;
+            box-shadow: 0 4px 12px rgba(94, 196, 169, 0.3);
+        }
+
+        .modal-btn-secondary {
+            background: #f5f5f7;
+            color: #1d1d1f;
+            border: 1px solid #d5d5d7;
+        }
+
+        .modal-btn-secondary:hover {
+            background: #ececf1;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -1015,10 +1227,9 @@
                         <div id="tasks-container"></div>
 
                         <div class="activity-insights">
-                            <h4 id="activity-insights-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M3.5 9.75h3v10.5h-3V9.75zm9-5h3v15.5h-3V4.75zm4.5 7h3v8.5h-3v-8.5z"/></svg>Activity Insights</h4>
-                            <p id="activity-insights-desc" style="color: #6e6e73; font-size: 14px; margin-top: 8px;">
-                                You're making great progress! Keep the momentum going.
-                            </p>
+                            <h4 id="activity-insights-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 8px;"><path d="M3.5 9.75h3v10.5h-3V9.75zm9-5h3v15.5h-3V4.75zm4.5 7h3v8.5h-3v-8.5z"/></svg>Activity Insights</h4>
+                            <div id="activity-insights-content" class="insights-metrics"></div>
+                            <div class="insights-tip" id="activity-insights-tip">You're making great progress! Keep the momentum going.</div>
                         </div>
                     </div>
                 </div>
@@ -1054,9 +1265,7 @@
                 <div class="card">
                     <div class="timeline" id="schedule-timeline"></div>
                     
-                    <div id="add-schedule-btn" style="text-align: center; padding: 24px; border: 2px dashed #e8e8ed; border-radius: 12px; cursor: pointer;" onclick="addScheduleTask()">
-                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Add Task to Schedule
-                    </div>
+                    <div id="add-schedule-btn" style="text-align: center; padding: 24px; border-radius: 12px; cursor: pointer;" onclick="addScheduleTask()">\n                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 8px; vertical-align: middle;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg><span id="add-schedule-btn-text">Add Task to Schedule</span>\n                    </div>
                 </div>
 
                 <div class="card" style="margin-top: 24px;">
@@ -1708,8 +1917,9 @@
 
         function updateActivityInsights() {
             try {
-                const descEl = document.getElementById('activity-insights-desc');
-                if (!descEl || !appState.analytics) return;
+                const contentEl = document.getElementById('activity-insights-content');
+                const tipEl = document.getElementById('activity-insights-tip');
+                if (!contentEl || !tipEl || !appState.analytics) return;
 
                 const a = appState.analytics;
                 const deep = Number(a.deep_focus_score || 0);
@@ -1717,23 +1927,45 @@
                 const cons = Number(a.consistency || 0);
                 const dist = Number(a.distractions || 0);
                 const sources = a.distraction_sources || {};
-                const topSource = Object.keys(sources).sort((x,y) => (sources[y]||0) - (sources[x]||0))[0] || '—';
+                const topSource = Object.keys(sources).sort((x,y) => (sources[y]||0) - (sources[x]||0))[0] || 'N/A';
                 const peak = a.peak_insight_time || '—';
 
                 let tip = '';
                 if (cons < 70 || dist >= 5) {
-                    tip = 'Tip: Take a 2‑min stretch break and refocus on one subtask.';
+                    tip = '💪 Take a 2‑min stretch break and refocus on one subtask.';
                 } else if (deep >= 80) {
-                    tip = 'Great flow! Queue a challenging subtask while focus is high.';
+                    tip = '⚡ Great flow! Queue a challenging subtask while focus is high.';
                 } else {
-                    tip = 'Keep a steady pace. Small wins add up.';
+                    tip = '📈 Keep a steady pace. Small wins add up.';
                 }
 
-                descEl.innerHTML = `
-                    <span style="display:block; margin-bottom:6px;">Deep focus <strong>${deep}%</strong> • Total <strong>${time}</strong> • Consistency <strong>${cons}%</strong></span>
-                    <span style="display:block; margin-bottom:6px;">Distractions <strong>${dist}</strong> (Top: <strong>${topSource}</strong>) • Peak window: <strong>${peak}</strong></span>
-                    <span>${tip}</span>
+                contentEl.innerHTML = `
+                    <div class="metric-card">
+                        <span class="metric-value">${deep}%</span>
+                        <span class="metric-label">Deep Focus</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value" style="font-size: 16px;">${time}</span>
+                        <span class="metric-label">Total Time</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value">${cons}%</span>
+                        <span class="metric-label">Consistency</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value">${dist}</span>
+                        <span class="metric-label">Distractions</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value" style="font-size: 14px;">${topSource}</span>
+                        <span class="metric-label">Top Source</span>
+                    </div>
+                    <div class="metric-card">
+                        <span class="metric-value" style="font-size: 12px;">${peak}</span>
+                        <span class="metric-label">Peak Window</span>
+                    </div>
                 `;
+                tipEl.textContent = tip;
             } catch (e) { console.warn('updateActivityInsights failed', e); }
         }
 
@@ -2346,16 +2578,80 @@
         }
 
         async function addTask() {
-            const title = prompt('Enter task title:');
-            if (title) {
+            openAddTaskModal();
+        }
+
+        function openAddTaskModal() {
+            const backdrop = document.getElementById('task-modal-backdrop') || createTaskModal();
+            backdrop.classList.add('active');
+            setTimeout(() => document.getElementById('task-title-input').focus(), 100);
+        }
+
+        function closeAddTaskModal() {
+            const backdrop = document.getElementById('task-modal-backdrop');
+            if (backdrop) backdrop.classList.remove('active');
+        }
+
+        function createTaskModal() {
+            const backdrop = document.createElement('div');
+            backdrop.id = 'task-modal-backdrop';
+            backdrop.className = 'modal-backdrop';
+            backdrop.innerHTML = `
+                <div id="task-modal">
+                    <h2>✨ Create New Task</h2>
+                    <p class="modal-subtitle">Break it down into focused chunks</p>
+                    <div class="modal-form-group">
+                        <label for="task-title-input">Task Title</label>
+                        <input type="text" id="task-title-input" placeholder="e.g., Write Essay, Study Math..." />
+                    </div>
+                    <div class="modal-form-group">
+                        <label>Difficulty</label>
+                        <div class="modal-difficulty">
+                            <div class="difficulty-option" onclick="setDifficulty(this, 'easy')">📚 Easy</div>
+                            <div class="difficulty-option" onclick="setDifficulty(this, 'medium')">⚙️ Medium</div>
+                            <div class="difficulty-option" onclick="setDifficulty(this, 'hard')">🔥 Hard</div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="modal-btn modal-btn-secondary" onclick="closeAddTaskModal()">Cancel</button>
+                        <button class="modal-btn modal-btn-primary" onclick="submitAddTask()">Create Task</button>
+                    </div>
+                </div>
+            `;
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) closeAddTaskModal();
+            });
+            document.body.appendChild(backdrop);
+            return backdrop;
+        }
+
+        let selectedDifficulty = 'medium';
+        function setDifficulty(el, level) {
+            document.querySelectorAll('.difficulty-option').forEach(opt => opt.classList.remove('selected'));
+            el.classList.add('selected');
+            selectedDifficulty = level;
+        }
+
+        async function submitAddTask() {
+            const title = document.getElementById('task-title-input').value.trim();
+            if (!title) {
+                showFeedback('Please enter a task title', 'warning');
+                return;
+            }
+            closeAddTaskModal();
+            try {
                 const response = await fetch('/api/add_task', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title })
+                    body: JSON.stringify({ title, difficulty: selectedDifficulty })
                 });
                 const newTask = await response.json();
                 appState.tasks.push(newTask);
                 renderTasks();
+                showFeedback(`Task "${title}" created! 🏃`);
+            } catch (error) {
+                console.error('Error adding task:', error);
+                showFeedback('Failed to create task', 'warning');
             }
         }
 
@@ -2427,10 +2723,63 @@
         }
 
         function addScheduleTask() {
-            const title = prompt('Enter task to schedule:');
-            if (title) {
-                alert('Task will be scheduled during your next peak focus window!');
-                loadSchedule();
+            openScheduleModal();
+        }
+
+        function openScheduleModal() {
+            const backdrop = document.getElementById('schedule-modal-backdrop') || createScheduleModal();
+            backdrop.classList.add('active');
+            setTimeout(() => document.getElementById('schedule-task-input').focus(), 100);
+        }
+
+        function closeScheduleModal() {
+            const backdrop = document.getElementById('schedule-modal-backdrop');
+            if (backdrop) backdrop.classList.remove('active');
+        }
+
+        function createScheduleModal() {
+            const backdrop = document.createElement('div');
+            backdrop.id = 'schedule-modal-backdrop';
+            backdrop.className = 'modal-backdrop';
+            backdrop.innerHTML = `
+                <div id="task-modal">
+                    <h2>📅 Add to Schedule</h2>
+                    <p class="modal-subtitle">We'll slot it during your peak focus hours</p>
+                    <div class="modal-form-group">
+                        <label for="schedule-task-input">Task Title</label>
+                        <input type="text" id="schedule-task-input" placeholder="e.g., Complete project proposal..." />
+                    </div>
+                    <div class="modal-form-group">
+                        <label for="schedule-duration">Estimated Duration (minutes)</label>
+                        <input type="number" id="schedule-duration" placeholder="30" min="5" max="480" value="30" />
+                    </div>
+                    <div class="modal-actions">
+                        <button class="modal-btn modal-btn-secondary" onclick="closeScheduleModal()">Cancel</button>
+                        <button class="modal-btn modal-btn-primary" onclick="submitScheduleTask()">Schedule It</button>
+                    </div>
+                </div>
+            `;
+            backdrop.addEventListener('click', (e) => {
+                if (e.target === backdrop) closeScheduleModal();
+            });
+            document.body.appendChild(backdrop);
+            return backdrop;
+        }
+
+        async function submitScheduleTask() {
+            const title = document.getElementById('schedule-task-input').value.trim();
+            const duration = parseInt(document.getElementById('schedule-duration').value) || 30;
+            if (!title) {
+                showFeedback('Please enter a task title', 'warning');
+                return;
+            }
+            closeScheduleModal();
+            try {
+                showFeedback(`📋 "${title}" scheduled for your peak focus window!`);
+                await loadSchedule();
+            } catch (error) {
+                console.error('Error scheduling task:', error);
+                showFeedback('Failed to schedule task', 'warning');
             }
         }
 
