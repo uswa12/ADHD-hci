@@ -282,15 +282,18 @@
 
         .buddy-info p {
             font-size: 12px;
-            color: #6e6e73;
+            color: #64748b;
         }
 
         .language-badge {
             margin-left: auto;
-            padding: 4px 12px;
-            background: #f5f5f7;
-            border-radius: 12px;
+            padding: 5px 12px;
+            background: rgba(94, 196, 169, 0.08);
+            border-radius: 8px;
             font-size: 12px;
+            font-weight: 500;
+            color: #5ec4a9;
+            border: 1px solid rgba(94, 196, 169, 0.15);
         }
 
         .buddy-message {
@@ -636,14 +639,20 @@
             border: none;
             cursor: pointer;
             font-size: 20px;
-            color: #6e6e73;
+            color: #64748b;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .date-nav button:hover {
+            color: #5ec4a9;
         }
 
         .bio-rhythm-card {
-            background: linear-gradient(135deg, #e8f5f2 0%, #f0fdf4 100%);
+            background: linear-gradient(135deg, rgba(94, 196, 169, 0.08), rgba(94, 196, 169, 0.03));
             padding: 24px;
             border-radius: 12px;
             margin-bottom: 24px;
+            border: 1px solid rgba(94, 196, 169, 0.15);
         }
 
         .timeline {
@@ -750,25 +759,28 @@
             background: linear-gradient(135deg, rgba(94, 196, 169, 0.12), rgba(94, 196, 169, 0.06));
         }
 
-        .stat-icon-focus { background: #e8f5f2; }
-        .stat-icon-time { background: #ede9fe; }
-        .stat-icon-consistency { background: #dbeafe; }
-        .stat-icon-distractions { background: #fed7aa; }
+        .stat-icon-focus { background: linear-gradient(135deg, rgba(94, 196, 169, 0.15), rgba(94, 196, 169, 0.08)); }
+        .stat-icon-time { background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.08)); }
+        .stat-icon-consistency { background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.08)); }
+        .stat-icon-distractions { background: linear-gradient(135deg, rgba(249, 115, 22, 0.15), rgba(249, 115, 22, 0.08)); }
 
         .stat-label {
-            color: #6e6e73;
+            color: #64748b;
             font-size: 14px;
+            font-weight: 500;
         }
 
         .stat-value {
-            font-size: 32px;
-            font-weight: 600;
-            margin-bottom: 4px;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #0f1419;
         }
 
         .stat-change {
-            font-size: 12px;
-            margin-top: 4px;
+            font-size: 13px;
+            margin-top: 6px;
+            font-weight: 500;
         }
 
         .stat-change.positive {
