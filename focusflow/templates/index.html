@@ -29,10 +29,11 @@
 
         /* Sidebar */
         .sidebar {
-            width: 240px;
+            width: 280px;
             background: white;
             padding: 24px;
             box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            overflow-y: auto;
         }
 
         .logo {
@@ -63,6 +64,17 @@
         }
 
         .nav-icon svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+
+        .settings-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: inherit;
+        }
+
+        .settings-icon svg { width: 16px; height: 16px; fill: currentColor; display: block; }
 
         .nav-item:hover {
             background: #f5f5f7;
@@ -176,6 +188,36 @@
             align-items: center;
             gap: 12px;
             margin-bottom: 16px;
+        }
+
+        /* Compact Focus Buddy for sidebar */
+        .focus-buddy.compact .buddy-avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 16px;
+        }
+        .focus-buddy.compact .buddy-info h4 {
+            font-size: 14px;
+        }
+        .focus-buddy.compact .buddy-info p {
+            font-size: 10px;
+        }
+        .focus-buddy.compact .language-badge {
+            padding: 2px 8px;
+            font-size: 10px;
+        }
+        .focus-buddy.compact .buddy-message {
+            padding: 12px;
+            font-size: 13px;
+        }
+        .focus-buddy.compact .mic-button {
+            width: 32px;
+            height: 32px;
+        }
+        .focus-buddy.compact .chat-input input {
+            padding: 10px 12px;
+            border-radius: 20px;
+            font-size: 13px;
         }
 
         .buddy-avatar {
@@ -785,6 +827,8 @@
         body.dark-mode .settings-nav-item { color: #cfe6ff; }
         body.dark-mode .settings-nav-item:hover { background: #0f1b2f; }
         body.dark-mode .settings-nav-item.active { background: #123b32; color: #9fe3c9; }
+        body.dark-mode .settings-icon { color: inherit; }
+        body.dark-mode .settings-label { color: inherit; }
 
         /* Color-blind friendly adjustments (high contrast but colorblind palette) */
         body.color-blind .dopamine-item { background: #e0f2ff; border-color: #0077b6; }
@@ -858,6 +902,28 @@
                     <span class="nav-label" id="nav-settings-label">Settings</span>
                 </div>
             </nav>
+
+            <!-- Focus Buddy (shown in sidebar for non-dashboard tabs) -->
+            <div class="card focus-buddy compact" id="sidebar-focus-buddy" style="margin-top: 16px; display: none;">
+                <div class="buddy-header">
+                    <div class="buddy-avatar" aria-hidden="true">🤖</div>
+                    <div class="buddy-info">
+                        <h4 id="focus-buddy-title">Focus Buddy</h4>
+                        <p id="buddy-help-text">ALWAYS HERE TO HELP</p>
+                    </div>
+                    <div class="language-badge" id="current-lang-badge">English</div>
+                </div>
+
+                <div class="buddy-message" id="buddy-message">
+                    Hi Friend! I noticed you've been staring at the wall. Let's finish this paragraph together?
+                </div>
+
+                <div class="chat-input">
+                    <button class="mic-button" id="mic-toggle" onclick="startVoiceCapture()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M12 14c1.66 0 3-1.34 3-3V5a3 3 0 1 0-6 0v6c0 1.66 1.34 3 3 3zm5-3h-2a5 5 0 1 1-10 0H3c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92z"/></svg></button>
+                    <input type="text" placeholder="Type or speak to Buddy..." id="chat-input" onkeypress="handleChatInput(event)">
+                    <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+                </div>
+            </div>
         </div>
 
         <!-- Main Content -->
@@ -868,7 +934,7 @@
                     <h1 id="greeting-prefix">Good <span id="greeting"></span>, Friend</h1>
                     <p id="ready-text">Ready to conquer your tasks today?</p>
                     <div class="privacy-badge" id="privacy-badge">
-                        🔒 Privacy Mode: Local Processing Only
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Privacy Mode: Local Processing Only
                     </div>
                     <!-- camera-notice removed; feedback displayed in Settings page -->
                 </div>
@@ -889,38 +955,38 @@
                                 <span id="webcam-status">Webcam inactive</span>. Monitoring gaze & posture.
                             </p>
                             <button class="mic-button" id="camera-toggle" onclick="toggleCamera()">
-                                📷
+                                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" style="display: inline-block;"><path d="M20 5h-3.17l-1.41-1.41A2 2 0 0 0 14 3H10a2 2 0 0 0-1.41.59L7.17 5H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm-8 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
                             </button>
                             <div id="video-container" class="video-feed hidden">
                                 <img id="video-feed" src="/video_feed" alt="Video Feed">
                             </div>
                         </div>
 
-                        <!-- Focus Buddy -->
-                        <div class="card focus-buddy">
+                        <!-- Focus Buddy (shown only on Dashboard, above Dopamine Menu) -->
+                        <div id="dashboard-focus-buddy" class="card focus-buddy" style="margin-top: 24px;">
                             <div class="buddy-header">
-                                <div class="buddy-avatar">🤖</div>
+                                <div class="buddy-avatar" aria-hidden="true">🤖</div>
                                 <div class="buddy-info">
-                                    <h4 id="focus-buddy-title">Focus Buddy</h4>
-                                    <p id="buddy-help-text">ALWAYS HERE TO HELP</p>
+                                    <h4 id="focus-buddy-title-db">Focus Buddy</h4>
+                                    <p id="buddy-help-text-db">ALWAYS HERE TO HELP</p>
                                 </div>
-                                <div class="language-badge" id="current-lang-badge">English</div>
+                                <div class="language-badge" id="current-lang-badge-db">English</div>
                             </div>
 
-                            <div class="buddy-message" id="buddy-message">
+                            <div class="buddy-message" id="buddy-message-db">
                                 Hi Friend! I noticed you've been staring at the wall. Let's finish this paragraph together?
                             </div>
 
                             <div class="chat-input">
-                                <button class="mic-button" id="mic-toggle" onclick="startVoiceCapture()">🎤</button>
-                                <input type="text" placeholder="Type or speak to Buddy..." id="chat-input" onkeypress="handleChatInput(event)">
-                                <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()">➤</button>
+                                <button class="mic-button" id="mic-toggle-db" onclick="startVoiceCapture()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M12 14c1.66 0 3-1.34 3-3V5a3 3 0 1 0-6 0v6c0 1.66 1.34 3 3 3zm5-3h-2a5 5 0 1 1-10 0H3c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92z"/></svg></button>
+                                <input type="text" placeholder="Type or speak to Buddy..." id="chat-input-db" onkeypress="handleChatInput(event)">
+                                <button style="background: none; border: none; font-size: 20px; cursor: pointer;" onclick="sendMessage()"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block;"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
                             </div>
                         </div>
 
                         <!-- Dopamine Menu -->
                         <div class="card dopamine-menu">
-                            <h4 id="dopamine-menu-title">☕ Dopamine Menu</h4>
+                            <h4 id="dopamine-menu-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-1-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg> Dopamine Menu</h4>
                             <div class="dopamine-grid">
                                 <div class="dopamine-item" onclick="triggerBreak('jumping-jacks')">5 Jumping Jacks</div>
                                 <div class="dopamine-item" onclick="triggerBreak('water')">Drink Water</div>
@@ -934,19 +1000,20 @@
                     <div class="card">
                         <div class="tasks-header">
                             <h2 id="tasks-title">Tasks <span class="chunking-badge" id="chunking-badge">Chunking Active</span></h2>
-                            <div class="add-task-btn" id="add-task-btn" onclick="addTask()">+ Add Task</div>
+                            <div class="add-task-btn" id="add-task-btn" onclick="addTask()"><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Add Task</div>
                         </div>
 
                         <div id="tasks-container"></div>
 
                         <div class="activity-insights">
-                            <h4 id="activity-insights-title">⚡ Activity Insights</h4>
+                            <h4 id="activity-insights-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M3.5 9.75h3v10.5h-3V9.75zm9-5h3v15.5h-3V4.75zm4.5 7h3v8.5h-3v-8.5z"/></svg>Activity Insights</h4>
                             <p id="activity-insights-desc" style="color: #6e6e73; font-size: 14px; margin-top: 8px;">
                                 You're making great progress! Keep the momentum going.
                             </p>
                         </div>
                     </div>
                 </div>
+
             </div>
 
             <!-- Schedule View -->
@@ -957,7 +1024,7 @@
                 </div>
 
                 <div class="schedule-header">
-                    <h2 id="timeline-title">📅 Timeline</h2>
+                    <h2 id="timeline-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>Timeline</h2>
                     <div class="date-nav">
                         <button onclick="prevDay()">←</button>
                         <span id="current-date">Today, Dec 17</span>
@@ -966,7 +1033,7 @@
                 </div>
 
                 <div class="bio-rhythm-card">
-                    <h3 id="bio-rhythm-title">🧠 BIO-RHYTHM INSIGHT</h3>
+                    <h3 id="bio-rhythm-title"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>BIO-RHYTHM INSIGHT</h3>
                     <h2 id="peak-focus-title">Peak Focus Time</h2>
                     <p id="peak-time-display"></p>
                     <p id="bio-insight" style="margin-top: 12px; color: #6e6e73;">
@@ -979,7 +1046,7 @@
                     <div class="timeline" id="schedule-timeline"></div>
                     
                     <div id="add-schedule-btn" style="text-align: center; padding: 24px; border: 2px dashed #e8e8ed; border-radius: 12px; cursor: pointer;" onclick="addScheduleTask()">
-                        + Add Task to Schedule
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>Add Task to Schedule
                     </div>
                 </div>
 
@@ -1014,28 +1081,28 @@
 
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-icon stat-icon-focus">🧠</div>
+                        <div class="stat-icon stat-icon-focus"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M8 4a4 4 0 0 0-4 4v1a3 3 0 0 0 0 6v1a4 4 0 0 0 4 4h1a3 3 0 0 0 6 0h1a4 4 0 0 0 4-4v-1a3 3 0 0 0 0-6V8a4 4 0 0 0-4-4h-1a3 3 0 0 0-6 0H8z"/></svg></div>
                         <div class="stat-value" id="deep-focus-score">78%</div>
                         <div class="stat-label" id="deep-focus-label">Deep Focus Score</div>
                         <div class="stat-change positive">+5%</div>
                     </div>
 
                     <div class="stat-card">
-                        <div class="stat-icon stat-icon-time">⏱️</div>
+                        <div class="stat-icon stat-icon-time"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5z"/></svg></div>
                         <div class="stat-value" id="total-focus-time">4h 12m</div>
                         <div class="stat-label" id="total-focus-label">Total Focus Time</div>
                         <div class="stat-change positive">+30m</div>
                     </div>
 
                     <div class="stat-card">
-                        <div class="stat-icon stat-icon-consistency">📈</div>
+                        <div class="stat-icon stat-icon-consistency"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
                         <div class="stat-value" id="consistency">85%</div>
                         <div class="stat-label" id="consistency-label">Consistency</div>
                         <div class="stat-change positive">Stable</div>
                     </div>
 
                     <div class="stat-card">
-                        <div class="stat-icon stat-icon-distractions">⚠️</div>
+                        <div class="stat-icon stat-icon-distractions"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg></div>
                         <div class="stat-value" id="distractions">12</div>
                         <div class="stat-label" id="distractions-label">Distractions</div>
                         <div class="stat-change negative">-3</div>
@@ -1056,7 +1123,7 @@
 
                 <div class="card ai-insight-card">
                     <div style="display: flex; align-items: center; gap: 16px;">
-                        <div style="font-size: 48px;">🧠</div>
+                        <div style="font-size: 48px;"><svg viewBox="0 0 24 24" width="48" height="48" fill="currentColor"><path d="M8 4a4 4 0 0 0-4 4v1a3 3 0 0 0 0 6v1a4 4 0 0 0 4 4h1a3 3 0 0 0 6 0h1a4 4 0 0 0 4-4v-1a3 3 0 0 0 0-6V8a4 4 0 0 0-4-4h-1a3 3 0 0 0-6 0H8z"/></svg></div>
                         <div>
                             <h3 id="ai-insight-title">AI Insight: Peak Performance</h3>
                             <p style="margin-top: 8px;" id="ai-insight-desc">Friend, your focus consistently peaks between <strong id="peak-insight-time">10:00 AM and 11:30 AM</strong>. We recommend scheduling your most challenging subjects (like Math) during this window for maximum retention.</p>
@@ -1075,13 +1142,22 @@
                 <div class="settings-layout">
                     <div class="settings-nav">
                         <div class="settings-nav-item active" id="accessibility-id" onclick="showSettingsSection('accessibility', event)">
-                            ♿ Accessibility
+                            <span class="settings-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-1.5 5h3a1 1 0 0 1 .96.73l.92 3.27H18a1 1 0 1 1 0 2h-2.18l-.68 2.45 1.33 4.41a1 1 0 0 1-1.9.58L12 16.75l-2.57 3.69a1 1 0 1 1-1.9-.58l1.33-4.4-.68-2.46H6a1 1 0 0 1 0-2h2.62l.92-3.27A1 1 0 0 1 10.5 7Z"/></svg>
+                            </span>
+                            <span class="settings-label" id="accessibility-label">Accessibility</span>
                         </div>
                         <div class="settings-nav-item" id="focusbuddy-id" onclick="showSettingsSection('buddy', event)">
-                            🤖 Focus Buddy
+                            <span class="settings-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M7 4a5 5 0 0 1 10 0v1h1a2 2 0 0 1 2 2v3a5 5 0 0 1-4 4.9V17a2 2 0 0 1-2 2v1a1 1 0 1 1-2 0v-1h-1v1a1 1 0 1 1-2 0v-1a2 2 0 0 1-2-2v-2.1A5 5 0 0 1 4 10V7a2 2 0 0 1 2-2h1V4Zm2 1h6V4a3 3 0 1 0-6 0v1Zm-3 3v2a3 3 0 1 0 6 0V8H6Zm8 0v2a3 3 0 1 0 6 0V8h-6Z"/></svg>
+                            </span>
+                            <span class="settings-label" id="focusbuddy-label">Focus Buddy</span>
                         </div>
                         <div class="settings-nav-item" id="privacy-id" onclick="showSettingsSection('privacy', event)">
-                            🔒 Privacy
+                            <span class="settings-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3Zm7 8H5v7h14v-7Z"/></svg>
+                            </span>
+                            <span class="settings-label" id="privacy-label">Privacy</span>
                         </div>
                     </div>
 
@@ -1089,7 +1165,7 @@
                         <div id="settings-feedback" class="hidden" role="status" aria-live="polite"></div>
                         <div id="accessibility-settings">
                             <div class="settings-group" id="a&s-id">
-                                <h3>♿ Accessibility & Sensory</h3>
+                                <h3><span class="settings-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 1 1 0 4 2 2 0 0 1 0-4Zm-1.5 5h3a1 1 0 0 1 .96.73l.92 3.27H18a1 1 0 1 1 0 2h-2.18l-.68 2.45 1.33 4.41a1 1 0 0 1-1.9.58L12 16.75l-2.57 3.69a1 1 0 1 1-1.9-.58l1.33-4.4-.68-2.46H6a1 1 0 0 1 0-2h2.62l.92-3.27A1 1 0 0 1 10.5 7Z"/></svg></span> Accessibility & Sensory</h3>
                                 <p>Adjust the interface for your comfort.</p>
 
                                 <div class="setting-item">
@@ -1144,7 +1220,7 @@
                             </div>
 
                             <div class="settings-group" id="fb-id">
-                                <h3>🤖 Focus Companion</h3>
+                                <h3><span class="settings-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 4a5 5 0 0 1 10 0v1h1a2 2 0 0 1 2 2v3a5 5 0 0 1-4 4.9V17a2 2 0 0 1-2 2v1a1 1 0 1 1-2 0v-1h-1v1a1 1 0 1 1-2 0v-1a2 2 0 0 1-2-2v-2.1A5 5 0 0 1 4 10V7a2 2 0 0 1 2-2h1V4Zm2 1h6V4a3 3 0 1 0-6 0v1Zm-3 3v2a3 3 0 1 0 6 0V8H6Zm8 0v2a3 3 0 1 0 6 0V8h-6Z"/></svg></span> Focus Companion</h3>
                                 <p>Configure how your AI buddy interacts with you.</p>
 
                                 <div class="setting-item">
@@ -1181,12 +1257,12 @@
                             </div>
 
                             <div class="settings-group" id="ph-id">
-                                <h3>🔒 Privacy & Hardware</h3>
+                                <h3><span class="settings-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3Zm7 8H5v7h14v-7Z"/></svg></span> Privacy & Hardware</h3>
                                 <p>Manage permissions and data processing.</p>
 
                                 <div class="card privacy-card">
                                     <div style="display: flex; align-items: center; gap: 12px;">
-                                        <span style="font-size: 24px;">🔒</span>
+                                        <span class="settings-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 0 1 5 5v2h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1V7a5 5 0 0 1 5-5Zm0 2a3 3 0 0 0-3 3v2h6V7a3 3 0 0 0-3-3Zm7 8H5v7h14v-7Z"/></svg></span>
                                         <div>
                                             <strong style="color: #5ec4a9;" id="local-processing-title">Local Edge Processing Active</strong>
                                             <p style="font-size: 12px; margin-top: 4px; color: #6e6e73;" id="local-processing-desc">
@@ -1417,7 +1493,7 @@
             };
 
             setText('ready-text', t.readyText);
-            setText('privacy-badge', `🔒 ${t.privacyBadge}`);
+            setText('privacy-badge', `<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" style="display: inline-block; margin-right: 6px;"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>${t.privacyBadge}`);
             setText('current-focus-label', t.currentFocusLabel);
             setText('webcam-status', appState.cameraActive ? t.webcamActive : t.webcamInactive);
             setText('focus-buddy-title', t.focusBuddyTitle);
@@ -1464,9 +1540,9 @@
             setText('local-processing-desc', t.localProcessingDesc);
             setText('camera-label', t.cameraLabel);
             setText('mic-label', t.micLabel);
-            setText('accessibility-id', t.accessibilitytitle);
-            setText('focusbuddy-id', t.focusbuddytitle);
-            setText('privacy-id', t.privacytitle);
+            setText('accessibility-label', t.accessibilitytitle);
+            setText('focusbuddy-label', t.focusbuddytitle);
+            setText('privacy-label', t.privacytitle);
 
             // Sidebar
             setText('nav-dashboard-label', t.navDashboard);
@@ -1720,6 +1796,14 @@
             });
 
             appState.currentView = viewName;
+
+            // Toggle Focus Buddy visibility based on active view
+            const dashboardBuddy = document.getElementById('dashboard-focus-buddy');
+            const sidebarBuddy = document.getElementById('sidebar-focus-buddy');
+            if (dashboardBuddy && sidebarBuddy) {
+                dashboardBuddy.style.display = viewName === 'dashboard' ? 'block' : 'none';
+                sidebarBuddy.style.display = viewName !== 'dashboard' ? 'block' : 'none';
+            }
 
             if (viewName === 'schedule') loadSchedule();
             if (viewName === 'analytics') loadAnalytics();
@@ -2289,7 +2373,7 @@
                                 </span>
                             </div>
                             <strong>${item.title}</strong>
-                            ${item.type === 'Deep Focus' ? '<div style="margin-top: 4px; font-size: 12px; color: #6e6e73;">🧠 ' + item.type + '</div>' : ''}
+                            ${item.type === 'Deep Focus' ? '<div style="margin-top: 4px; font-size: 12px; color: #6e6e73;"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="display: inline-block; margin-right: 4px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' + item.type + '</div>' : ''}
                         </div>
                     </div>
                 `;
