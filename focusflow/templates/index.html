@@ -2306,10 +2306,12 @@
                 cameraMainButton.disabled = !appState.settings.camera_access;
             }
 
-            // Sync microphone UI toggles (chat mic button + settings toggle)
+            // Sync microphone UI toggles (sidebar + dashboard mic buttons + settings toggle)
             const micButton = document.getElementById('mic-toggle');
+            const micButtonDb = document.getElementById('mic-toggle-db');
             const micSettingsToggle = document.getElementById('mic-access-toggle');
             if (micButton) micButton.classList.toggle('active', !!appState.microphoneActive);
+            if (micButtonDb) micButtonDb.classList.toggle('active', !!appState.microphoneActive);
             if (micSettingsToggle) micSettingsToggle.classList.toggle('active', !!appState.microphoneActive);
 
             // Sync wake word toggle
@@ -2663,11 +2665,17 @@
         }
     };
 
+    // Set UI to active immediately on click for clear feedback
+    appState.microphoneActive = true;
+    updateUI();
+
     try {
         recognition.start();
     } catch (e) {
         console.error('Failed to start recognition', e);
         showFeedback('Could not start speech recognition.', 'warning');
+        appState.microphoneActive = false;
+        updateUI();
     }
 }
         // Wake word continuous listening
