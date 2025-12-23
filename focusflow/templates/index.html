@@ -482,6 +482,45 @@
             color: #6e6e73;
         }
 
+        .delete-task-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+        }
+
+        .delete-task-btn:hover {
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .delete-schedule-btn {
+            background: none;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.5;
+            margin-left: 8px;
+        }
+
+        .delete-schedule-btn:hover {
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
         .subtask {
             display: flex;
             align-items: center;
@@ -2980,6 +3019,11 @@
                         <h3>
                             ${task.title}
                             <span class="task-progress">${task.completed}/${task.total}</span>
+                            <button class="delete-task-btn" onclick="deleteTask(${task.id})" title="Delete Task">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                </svg>
+                            </button>
                         </h3>
                         ${task.subtasks.map(subtask => `
                             <div class="subtask">
@@ -3028,10 +3072,34 @@
             openAddTaskModal();
         }
 
+        async function deleteTask(taskId) {
+            if (!confirm('Are you sure you want to delete this task?')) {
+                return;
+            }
+            try {
+                await fetch(`/api/task/${taskId}`, {
+                    method: 'DELETE'
+                });
+                await loadState();
+                renderTasks();
+                await loadSchedule();
+                showFeedback('Task deleted successfully');
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                showFeedback('Failed to delete task', 'warning');
+            }
+        }
+
         function openAddTaskModal() {
-            const backdrop = document.getElementById('task-modal-backdrop') || createTaskModal();
+            let backdrop = document.getElementById('task-modal-backdrop');
+            if (!backdrop) {
+                backdrop = createTaskModal();
+            }
             backdrop.classList.add('active');
-            setTimeout(() => document.getElementById('task-title-input').focus(), 100);
+            setTimeout(() => {
+                const input = document.getElementById('task-title-input');
+                if (input) input.focus();
+            }, 100);
         }
 
         function closeAddTaskModal() {
@@ -3087,15 +3155,16 @@
             }
             closeAddTaskModal();
             try {
-                const response = await fetch('/api/add_task', {
+                await fetch('/api/add_task', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, difficulty: selectedDifficulty })
                 });
-                const newTask = await response.json();
-                appState.tasks.push(newTask);
-                renderTasks();
+                // Let the server state sync handle updating the UI
                 showFeedback(`Task "${title}" created! 🏃`);
+                // Immediately refresh state to show the new task
+                await loadState();
+                renderTasks();
             } catch (error) {
                 console.error('Error adding task:', error);
                 showFeedback('Failed to create task', 'warning');
@@ -3148,7 +3217,7 @@
             const timeline = document.getElementById('schedule-timeline');
             if (!timeline) return;
             timeline.innerHTML = '';
-            appState.schedule.forEach(item => {
+            appState.schedule.forEach((item, index) => {
                 const energyClass = `energy-${item.energy.toLowerCase()}`;
                 const itemHTML = `
                     <div class="timeline-item">
@@ -3159,6 +3228,12 @@
                                 <span class="energy-badge ${energyClass}">
                                     Energy: ${item.energy}
                                 </span>
+                                ${item.title !== 'Short Break' ? `
+                                <button class="delete-schedule-btn" onclick="deleteScheduleItem('${item.title}', '${item.time}')" title="Delete from Schedule">
+                                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                                    </svg>
+                                </button>` : ''}
                             </div>
                             <strong>${item.title}</strong>
                             ${item.type === 'Deep Focus' ? '<div style="margin-top: 4px; font-size: 12px; color: #6e6e73;"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="display: inline-block; margin-right: 4px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' + item.type + '</div>' : ''}
@@ -3173,10 +3248,38 @@
             openScheduleModal();
         }
 
+        async function deleteScheduleItem(taskTitle, time) {
+            if (!confirm(`Remove "${taskTitle}" from schedule?`)) {
+                return;
+            }
+            try {
+                // Find and delete the task by title
+                const task = appState.tasks.find(t => t.title === taskTitle);
+                if (task) {
+                    await fetch(`/api/task/${task.id}`, {
+                        method: 'DELETE'
+                    });
+                    await loadState();
+                    renderTasks();
+                    await loadSchedule();
+                    showFeedback('Removed from schedule');
+                }
+            } catch (error) {
+                console.error('Error removing from schedule:', error);
+                showFeedback('Failed to remove from schedule', 'warning');
+            }
+        }
+
         function openScheduleModal() {
-            const backdrop = document.getElementById('schedule-modal-backdrop') || createScheduleModal();
+            let backdrop = document.getElementById('schedule-modal-backdrop');
+            if (!backdrop) {
+                backdrop = createScheduleModal();
+            }
             backdrop.classList.add('active');
-            setTimeout(() => document.getElementById('schedule-task-input').focus(), 100);
+            setTimeout(() => {
+                const input = document.getElementById('schedule-task-input');
+                if (input) input.focus();
+            }, 100);
         }
 
         function closeScheduleModal() {
@@ -3222,7 +3325,16 @@
             }
             closeScheduleModal();
             try {
+                // Create the task first with the specified duration
+                await fetch('/api/add_task', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, difficulty: 'medium', duration_minutes: duration })
+                });
+                // Let server state sync handle updating the UI
                 showFeedback(`📋 "${title}" scheduled for your peak focus window!`);
+                await loadState();
+                renderTasks();
                 await loadSchedule();
             } catch (error) {
                 console.error('Error scheduling task:', error);
