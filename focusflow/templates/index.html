@@ -2092,6 +2092,9 @@
             schedule: [],
             analytics: {},
             focusHistory: [],
+            cameraInitialized: false,
+            cameraError: null,
+            lastFrameTs: 0,
             settings: {
                 language: 'English',
                 proactive_interventions: true,
@@ -2200,6 +2203,8 @@
             renderTasks();
             applyLanguage(); // Initial apply
 
+            initVideoFeed();
+
             // Populate microphone devices in settings
             try { populateMicDevices(); } catch (e) { console.warn('populateMicDevices failed', e); }
 
@@ -2223,8 +2228,32 @@
                 } catch (e) { /* ignore */ }
             }, { once: true });
 
-            setInterval(updateState, 300);
+            setInterval(updateState, 150);
             setInterval(checkBuddyMessages, 3000);
+        }
+
+        let snapshotTimer = null;
+        let videoFeedMode = 'stream';
+
+        function initVideoFeed() {
+            const img = document.getElementById('video-feed');
+            if (!img) return;
+            img.onerror = () => {
+                if (videoFeedMode !== 'snapshot') startSnapshotMode();
+            };
+            img.src = '/video_feed';
+        }
+
+        function startSnapshotMode() {
+            const img = document.getElementById('video-feed');
+            if (!img) return;
+            videoFeedMode = 'snapshot';
+            if (snapshotTimer) clearInterval(snapshotTimer);
+            const update = () => {
+                img.src = `/video_frame?ts=${Date.now()}`;
+            };
+            update();
+            snapshotTimer = setInterval(update, 200);
         }
 
         function updateGreeting() {
@@ -2244,8 +2273,19 @@
                     wakeWordActive: data.wake_word_active || false,
                     tasks: data.tasks || [],
                     analytics: data.analytics || {},
-                    settings: { ...appState.settings, ...data.settings }
+                    settings: { ...appState.settings, ...data.settings },
+                    focusHistory: appState.focusHistory || [],
+                    cameraError: data.camera_error || null,
+                    lastFrameTs: data.last_frame_ts || 0
                 };
+                
+                // Initialize camera on first load if not explicitly disabled
+                if (!appState.cameraInitialized && data.focus_score !== undefined) {
+                    try {
+                        await fetch('/api/toggle_camera', { method: 'POST' });
+                        appState.cameraInitialized = true;
+                    } catch (e) { console.warn('Auto-enable camera failed', e); }
+                }
 
                 updateUI();
                 updateFocusDisplay();
@@ -2261,6 +2301,16 @@
             await loadState();
             updateFocusDisplay();
             updateUI();
+            
+            // Sync all toggle states
+            if (appState.cameraActive) {
+                const cameraBtn = document.getElementById('camera-toggle');
+                if (cameraBtn) cameraBtn.classList.add('active');
+            }
+            if (appState.microphoneActive) {
+                const micBtn = document.getElementById('mic-access-toggle');
+                if (micBtn) micBtn.classList.add('active');
+            }
         }
 
         function updateFocusDisplay() {
@@ -2283,17 +2333,29 @@
                     }
                 }
 
+                // Accumulate focus history for chart
+                if (!Array.isArray(appState.focusHistory)) appState.focusHistory = [];
                 appState.focusHistory.push(appState.focusScore);
-                if (appState.focusHistory.length > 20) appState.focusHistory.shift();
+                if (appState.focusHistory.length > 50) appState.focusHistory.shift();
+                
+                // Trigger chart redraw
+                renderFocusChart();
             }
         }
 
         function updateUI() {
+            const statusEl = document.getElementById('webcam-status');
+            const nowSec = Date.now() / 1000;
+            const staleFrame = appState.lastFrameTs && (nowSec - appState.lastFrameTs > 2);
             if (appState.cameraActive) {
-                document.getElementById('webcam-status').textContent = translations[appState.settings.language].webcamActive;
+                if (appState.cameraError || staleFrame) {
+                    statusEl.textContent = appState.cameraError || 'Camera active, but no frames yet.';
+                } else {
+                    statusEl.textContent = translations[appState.settings.language].webcamActive;
+                }
                 document.getElementById('video-container').classList.remove('hidden');
             } else {
-                document.getElementById('webcam-status').textContent = translations[appState.settings.language].webcamInactive;
+                statusEl.textContent = translations[appState.settings.language].webcamInactive;
                 document.getElementById('video-container').classList.add('hidden');
             }
 
@@ -2393,17 +2455,64 @@
             } catch (e) { console.warn('updateActivityInsights failed', e); }
         }
 
+        let selectedVoice = null;
+        let lastSpokenText = '';
+        let lastSpokenAt = 0;
+        let pendingSpeech = null;
+
+        function pickVoice() {
+            try {
+                const voices = window.speechSynthesis.getVoices() || [];
+                if (!voices.length) return;
+                const lang = (appState.settings.language === 'Urdu') ? 'ur' : 'en';
+                selectedVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(lang)) || voices[0];
+            } catch (e) {
+                selectedVoice = null;
+            }
+        }
+
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = pickVoice;
+        }
+
         function speakMessage(text) {
             if (!appState.settings.proactive_interventions || !appState.audioInitialized) return;
-            window.speechSynthesis.cancel();
-            if ('speechSynthesis' in window) {
+            if (!('speechSynthesis' in window)) return;
+            if (!text || typeof text !== 'string') return;
+
+            const now = Date.now();
+            if (text === lastSpokenText && (now - lastSpokenAt) < 1500) return;
+
+            if (!selectedVoice) pickVoice();
+
+            const speak = () => {
+                window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(text);
                 const langMap = { 'English': 'en-US', 'Urdu': 'ur-PK', 'Mixed': 'en-US' };
                 utterance.lang = langMap[appState.settings.language] || 'en-US';
+                if (selectedVoice) utterance.voice = selectedVoice;
                 utterance.rate = 0.9;
                 utterance.pitch = 1.0;
+                utterance.onend = () => {
+                    if (pendingSpeech) {
+                        const next = pendingSpeech;
+                        pendingSpeech = null;
+                        speakMessage(next);
+                    }
+                };
+                lastSpokenText = text;
+                lastSpokenAt = now;
                 window.speechSynthesis.speak(utterance);
+            };
+
+            if (window.speechSynthesis.speaking) {
+                pendingSpeech = text;
+                window.speechSynthesis.cancel();
+                setTimeout(speak, 50);
+                return;
             }
+
+            speak();
         }
 
         // Show a temporary notice when camera access is disabled
@@ -3355,8 +3464,22 @@
             const ctx = document.getElementById('focus-chart');
             if (!ctx) return;
 
+            // Ensure focusHistory is initialized
+            if (!Array.isArray(appState.focusHistory)) {
+                appState.focusHistory = [50]; // default placeholder
+            }
+
+            // Ensure at least one data point
+            if (appState.focusHistory.length === 0) {
+                appState.focusHistory = [50];
+            }
+
+            const labels = Array.from({length: appState.focusHistory.length}, (_, i) => `T${i+1}`);
             if (window.focusChart) {
-                window.focusChart.destroy();
+                window.focusChart.data.labels = labels;
+                window.focusChart.data.datasets[0].data = appState.focusHistory;
+                window.focusChart.update('none');
+                return;
             }
 
             // Choose palette based on color-blind mode + preset
@@ -3374,28 +3497,35 @@
             window.focusChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array.from({length: appState.focusHistory.length}, (_, i) => `T${i+1}`),
+                    labels,
                     datasets: [{
                         label: 'Focus Score',
                         data: appState.focusHistory,
                         borderColor: lineColor,
                         backgroundColor: fillColor,
                         tension: 0.4,
-                        fill: true
+                        fill: true,
+                        pointRadius: 3,
+                        pointBackgroundColor: lineColor
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    animation: false,
                     scales: {
                         y: {
                             beginAtZero: true,
-                            max: 100
+                            max: 100,
+                            min: 0
                         }
                     },
                     plugins: {
                         legend: {
                             display: false
+                        },
+                        tooltip: {
+                            enabled: true
                         }
                     }
                 }

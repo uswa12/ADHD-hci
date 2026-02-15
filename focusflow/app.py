@@ -1,5 +1,6 @@
 import os
-os.environ['OPENCV_AVFOUNDATION_SKIP_AUTH'] = '1'
+# Allow macOS to show the camera permission prompt
+os.environ['OPENCV_AVFOUNDATION_SKIP_AUTH'] = '0'
 
 from flask import Flask, render_template, jsonify, Response, request
 import threading
@@ -55,6 +56,8 @@ class FocusFlowState:
         self.predictor = FocusPredictor()
         self.data_lock = threading.Lock()
         self.latest_frame = None
+        self.last_frame_ts = 0.0
+        self.camera_error = None
         self.total_sessions = 0
         self.total_focus_accumulated = 0
         self.distraction_count = 0
@@ -121,12 +124,10 @@ state = FocusFlowState()
 
 # MediaPipe Setup
 mp_drawing = mp.solutions.drawing_utils
-mp_pose = mp.solutions.pose
-# Using Pose tracker for stable ear and nose detection
-pose_tracker = None
-if HAVE_CV and mp is not None:
+mp_pose = mp.solutions.pose # Using Pose tracker for stable ear and nose detection
+pose_tracker = None 
+if HAVE_CV and mp is not None: 
     pose_tracker = mp_pose.Pose(min_detection_confidence=0.6, min_tracking_confidence=0.6)
-
 # --- COMPUTER VISION LOGIC ---
 
 def get_head_angles(landmarks, image_w, image_h):
@@ -153,13 +154,32 @@ def get_head_angles(landmarks, image_w, image_h):
         # If landmarks are lost (head turned too far), assume distracted
         return 0.8 
 
+def _open_camera():
+    """Try opening a camera device with AVFoundation (macOS) and fallbacks."""
+    indices = [0, 1, 2]
+    for idx in indices:
+        try:
+            cam = cv2.VideoCapture(idx, cv2.CAP_AVFOUNDATION)
+            if cam is not None and cam.isOpened():
+                return cam
+        except Exception:
+            pass
+    for idx in indices:
+        try:
+            cam = cv2.VideoCapture(idx)
+            if cam is not None and cam.isOpened():
+                return cam
+        except Exception:
+            pass
+    return None
+
 def camera_loop():
     """Background thread for continuous processing."""
     if not HAVE_CV or cv2 is None:
         # Camera processing not available on this system
         print('Camera loop disabled — OpenCV/MediaPipe not available')
         return
-    camera = cv2.VideoCapture(0)
+    camera = None
     while True:
         with state.data_lock:
             active = state.camera_active
@@ -167,8 +187,25 @@ def camera_loop():
             time.sleep(0.1)
             continue
 
+        if camera is None or not camera.isOpened():
+            camera = _open_camera()
+            if camera is None:
+                with state.data_lock:
+                    state.camera_error = 'Camera not available. Check permissions or close other apps.'
+                time.sleep(0.2)
+                continue
+
         success, frame = camera.read()
-        if not success:
+        if not success or frame is None:
+            with state.data_lock:
+                if time.time() - state.last_frame_ts > 2.0:
+                    state.camera_error = 'No camera frames received. Check permissions or close other apps.'
+            try:
+                camera.release()
+            except Exception:
+                pass
+            camera = None
+            time.sleep(0.1)
             continue
 
         h, w, _ = frame.shape
@@ -182,6 +219,8 @@ def camera_loop():
             current_raw_val = get_head_angles(results.pose_landmarks.landmark, w, h)
             
             with state.data_lock:
+                state.camera_error = None
+                state.last_frame_ts = time.time()
                 # 2. Update global score with Smoothing
                 state.fidget_score_global = 0.7 * state.fidget_score_global + 0.3 * current_raw_val
                 
@@ -218,7 +257,8 @@ def camera_loop():
         with state.data_lock:
             state.latest_frame = frame.copy()
 
-    camera.release()
+    if camera is not None:
+        camera.release()
 
 # --- BUDDY & API ROUTES ---
 def trigger_buddy_intervention():
@@ -231,7 +271,6 @@ def trigger_buddy_intervention():
     if not state.buddy_messages_queue:
         msg = random.choice(msgs)
         state.buddy_messages_queue.append(msg)
-        threading.Thread(target=speak_message, args=(msg,), daemon=True).start()
 
 def speak_message(message):
     try:
@@ -245,6 +284,8 @@ def index(): return render_template('index.html')
 @app.route('/api/state')
 def get_state():
     with state.data_lock:
+        # Convert focus_history dict to hourly averages for bio-rhythm
+        hour_averages = {h: sum(scores)/len(scores) if scores else 0 for h, scores in state.focus_history.items()}
         return jsonify({
             'focus_score': state.focus_score,
             'camera_active': state.camera_active,
@@ -252,7 +293,11 @@ def get_state():
             'wake_word_active': state.wake_word_active,
             'tasks': state.tasks,
             'analytics': state.analytics,
-            'settings': state.settings
+            'settings': state.settings,
+            'focus_history': state.focus_history,
+            'hour_averages': hour_averages,
+            'camera_error': state.camera_error,
+            'last_frame_ts': state.last_frame_ts
         })
 
 @app.route('/api/schedule')
@@ -329,6 +374,8 @@ def toggle_wake_word():
 
 @app.route('/video_feed')
 def video_feed():
+    if not HAVE_CV or cv2 is None:
+        return Response(status=503)
     def generate():
         while True:
             with state.data_lock:
@@ -337,7 +384,26 @@ def video_feed():
                 ret, buffer = cv2.imencode('.jpg', frame)
                 yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
             time.sleep(0.04)
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    response = Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Pragma'] = 'no-cache'
+    return response
+
+@app.route('/video_frame')
+def video_frame():
+    if not HAVE_CV or cv2 is None:
+        return Response(status=503)
+    with state.data_lock:
+        frame = state.latest_frame
+    if frame is None:
+        return Response(status=204)
+    ret, buffer = cv2.imencode('.jpg', frame)
+    if not ret:
+        return Response(status=500)
+    response = Response(buffer.tobytes(), mimetype='image/jpeg')
+    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Pragma'] = 'no-cache'
+    return response
 
 @app.route('/api/buddy_messages')
 def get_buddy_messages():
