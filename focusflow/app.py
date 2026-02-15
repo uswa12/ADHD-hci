@@ -1,6 +1,8 @@
 import os
 # Allow macOS to show the camera permission prompt
 os.environ['OPENCV_AVFOUNDATION_SKIP_AUTH'] = '0'
+import webbrowser
+import threading
 
 from flask import Flask, render_template, jsonify, Response, request
 import threading
@@ -1209,5 +1211,10 @@ def dopamine_suggester():
 
 threading.Thread(target=dopamine_suggester, daemon=True).start()
 
-if __name__ == '__main__':
-    app.run(debug=True, threaded=True, port=5000)
+def open_browser():
+    webbrowser.open("http://127.0.0.1:5000")
+
+if __name__ == "__main__":
+    threading.Timer(1.5, open_browser).start()
+    app.run(host="127.0.0.1", port=5000, debug=False)
+
