@@ -21,7 +21,7 @@ FocusFlow is a lightweight ADHD-friendly study assistant built with Flask. It es
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r Requirements.txt
-python app.py  # defaults to port 5000
+python focusflow/app.py  # defaults to port 5000
 ```
 Open http://localhost:5000 and allow camera access in your browser. If port 5000 is taken, stop the conflicting process (e.g., `lsof -i :5000` on macOS) or change the port in `app.py`.
 
