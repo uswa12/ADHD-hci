@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 focusflow/app.py
+python focusflow/app.py
